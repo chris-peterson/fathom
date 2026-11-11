@@ -1,0 +1,20 @@
+{
+  "name": "fathom",
+  "version": "0.0.0",
+  "description": "Keeps the facts of a piece of work in one versioned record and renders each reader's document from it, with every figure traced to a fact.",
+  "author": {
+    "name": "chris-peterson"
+  },
+  "repository": "https://github.com/chris-peterson/fathom",
+  "license": "MIT",
+  "keywords": [
+    "claude",
+    "documents",
+    "incidents",
+    "postmortem",
+    "record",
+    "views",
+    "citations"
+  ],
+  "icon": ".claude-plugin/icon.svg"
+}
