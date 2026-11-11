@@ -16,5 +16,7 @@
     "views",
     "citations"
   ],
-  "icon": ".claude-plugin/icon.svg"
+  "homepage": "https://chris-peterson.github.io/fathom/#/",
+  "icon": ".claude-plugin/icon.svg",
+  "documentationUrl": "https://chris-peterson.github.io/fathom/#/"
 }
