@@ -1,5 +1,6 @@
 ---
 audience: engineers choosing a fix, the next on-call, and anyone checking the reasoning
+visibility: private
 needs: what failed, the mechanism, how sure we are, and which fix to make, before the postmortem exists
 bottom-line: what failed and why, in one sentence, naming the defect and the trigger
 tone: precise; identifiers and links wherever a reader would look something up

@@ -1,5 +1,6 @@
 ---
 audience: the postmortem meeting's attendees, and whoever finds this incident's shape again later
+visibility: internal
 needs: the account the meeting reviews, with every action owned and every residual risk named
 bottom-line: what failed, for how long, for whom, and whether the fix has landed
 tone: blameless, complete, and plain enough for attendees outside the team

@@ -156,6 +156,24 @@ framing rule such as a blameless rewrite. The renderer follows the brief; the
 brief is versioned and reviewed like code. A new kind of reader is a new brief,
 not a new document.
 
+### 11. A view is no wider than its narrowest fact
+
+One record feeds every audience, so it joins facts whose sources had different
+readers: a public status update beside a customer's name, an outage window
+beside an internal host. Each view is a write to a new set of readers, and a
+fact may only go where its source's readers could already see it. This is the
+"no write-down" rule of the
+[Bell–LaPadula model](https://en.wikipedia.org/wiki/Bell%E2%80%93LaPadula_model).
+A view's visibility is capped by its most private fact, its
+[high-water mark](https://en.wikipedia.org/wiki/High-water_mark_%28computer_security%29).
+
+The scrutiny happens at render time, not while recording. Facts go in fast and
+unclassified, since who may read one is often unclear until a reader asks for
+it. The renderer judges each fact against the view's visibility, asks the user
+about the ones it can't place, and records the answer, so the next render
+doesn't ask again. The check then fails any view that cites a fact narrower
+than the visibility it is stamped with.
+
 ## How rendered prose differs from rendered code
 
 The software patterns above are deterministic: the same state renders the same

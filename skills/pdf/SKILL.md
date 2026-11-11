@@ -174,8 +174,11 @@ uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/pdf/scripts/to-pdf.py <page.html | 
 ```
 
 For a fathom view, add `--record <dir>`: the script runs `fathom check` on the
-view first and prints nothing when it fails. When the page is a one-pager
-written from an artifact, add `--links-from <artifact.html>`: the script reports
+view first and prints nothing when it fails. A PDF reaches whoever it's sent
+to, so before printing a view, ask who that is when the user hasn't said, and
+when they are wider than the view's `fathom-visibility` stamp, render the view
+again at that visibility (`/fathom:render`) instead of printing this one. When
+the page is a one-pager written from an artifact, add `--links-from <artifact.html>`: the script reports
 how many of its links the PDF kept, naming the ones it lost. Put each missing
 link back unless the readers can't open it.
 
@@ -221,7 +224,7 @@ or in the one-pager and rerender.
 
 Report in a few lines: each file as a link (`[name.pdf](file:///full/path)`)
 with its page count and scale, for a condensed page what it left out, for a
-fathom view the record version and audience it was stamped with, any number in
+fathom view the record version, audience, and visibility it was stamped with, any number in
 the source that its own data contradicts, and the offer of a fancy version when
 the Style table points there.
 

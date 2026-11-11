@@ -30,6 +30,10 @@ below its category's heading, so every requirement has a linkable anchor
 - **version**: a point in the record's history. Reading the record *as of* a
   version gives, for each fact, the latest row recorded at or before it.
 - **certainty**: how a fact is known: measured, observed, or inferred.
+- **visibility**: who may see something, in the levels a GitLab project uses:
+  public (anyone), internal (anyone in the organization), or private (the
+  people on the work). A fact's visibility is who can see its source; a view's
+  is who can see where it is published.
 - **view**: one rendered document: the record as of a version, rendered for an
   audience, in a format and a style.
 - **audience brief**: the instructions the renderer follows to turn the record
@@ -185,8 +189,8 @@ Audience briefs
 
 #### `BRIEF-01`
 The system shall describe each audience in a brief that states who reads the
-view, what they need from it, the bottom line it opens with, its tone and
-verbosity, and what it leaves out.
+view, the visibility it is published at, what they need from it, the bottom
+line it opens with, its tone and verbosity, and what it leaves out.
 
 #### `BRIEF-02`
 The system shall keep briefs as files reviewed and versioned with the schema.
@@ -224,6 +228,49 @@ each failure with the view and the text that failed.
 #### `CHECK-05`
 When a view is published, the system shall have checked it at the version it is
 stamped with.
+
+### `ACCESS`
+Who may read a fact: a view is no wider than its narrowest fact
+
+#### `ACCESS-01`
+The system shall let a row carry the fact's visibility, and shall record a row
+whether or not its visibility is known.
+
+#### `ACCESS-02`
+When a row is recorded without a visibility, the system shall give it the
+visibility of its fact's previous row.
+
+#### `ACCESS-03`
+The system shall stamp every view with its visibility, which is the brief's
+unless the user names where the view is published.
+
+#### `ACCESS-04`
+Before a view is written, the system shall judge each fact it will state
+against the view's visibility, from the fact's visibility, its basis, and its
+fields.
+
+#### `ACCESS-05`
+If the system is unsure whether a fact may be read at the view's visibility,
+then it shall ask the user to classify the fact and record the answer as the
+fact's visibility.
+
+#### `ACCESS-06`
+If a fact is narrower than the view's visibility, then the system shall leave
+it out of the view and report it, unless the user narrows the view's
+visibility instead.
+
+#### `ACCESS-07`
+If a view cites a fact whose visibility is narrower than the view's stamped
+visibility, then the system shall fail the check.
+
+#### `ACCESS-08`
+Before a view is published, the system shall compare who can read the
+destination with the view's visibility, and ask the user when the destination
+is wider.
+
+#### `ACCESS-09`
+If evidence holds a secret value (a token, a password, a key), then the system
+shall record the secret by its name in its store and never the value.
 
 ### `FORMAT`
 Formats

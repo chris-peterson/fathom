@@ -23,6 +23,7 @@ Run the CLI as `${CLAUDE_PLUGIN_ROOT}/scripts/fathom`, written `fathom` below;
 | Brief | the one the user names; ask with the kind's list when unclear | `fathom kind <dir>`, then `fathom brief --record <dir> <name>` |
 | Format | an HTML page | the user's words: page, artifact, PDF, one-pager |
 | Style | the house look of where it's going | the user's words, or `fancy` for PDF |
+| Visibility | the brief's `visibility` | where the user says the view goes: a public page, a channel the whole organization reads, the team's own space |
 
 When several views are wanted, render every one from the same version unless
 the user asks otherwise, so they agree by construction.
@@ -42,13 +43,46 @@ stop**: name the missing fact and record it first (`/fathom:record`), then
 render from the new version. A number typed into a view is a fact the record is
 missing.
 
-## 3. Write the view as HTML
+## 3. Judge who may read each fact
+
+One record feeds every audience, so each render is a chance to send a fact to
+readers its source never had. Recording stays fast by leaving most facts
+unclassified; the scrutiny happens here, against this view's visibility
+(`public`, `internal`, `private`, widest first, as a GitLab project names them).
+
+For each fact the view will state:
+
+| The fact | Do |
+| --- | --- |
+| Carries a visibility at or wider than the view's | State it |
+| Carries a narrower visibility | Leave it out |
+| Unclassified, and its basis and fields are plainly fine for these readers | State it |
+| Unclassified, and you're unsure: a customer, a person, an internal host or account, a cost, a security detail, evidence from a source the readers can't open | Ask |
+
+**Ask once, for every unsure fact together**, with `AskUserQuestion`: name each
+fact by key with the value the view would show and where it came from, and
+offer the visibility levels. Record each answer before writing the view, so no
+later render asks again:
+
+```bash
+fathom classify <dir> <visibility> <key>...
+```
+
+`classify` adds a row per key carrying the visibility, so the view renders from
+the new version. A later correction of the fact keeps its visibility.
+
+When a fact the bottom line rests on is narrower than the view, say so and let
+the user choose: leave it out, or narrow the view's visibility (and so where it
+can go). A secret value never appears in any view; name the secret instead.
+
+## 4. Write the view as HTML
 
 HTML is the form `fathom check` reads; PDF and published pages print from it.
 
 - **Stamp it.** In `<head>`:
-  `<meta name="fathom-version" content="<N>">` and
-  `<meta name="fathom-audience" content="<brief name>">`. Show the stamp to
+  `<meta name="fathom-version" content="<N>">`,
+  `<meta name="fathom-audience" content="<brief name>">`, and
+  `<meta name="fathom-visibility" content="<visibility>">`. Show the stamp to
   readers too, in a footer or meta line marked `data-literal` (its version
   number is not a fact): "Rendered from `<record title>` v`<N>` for `<audience>`".
 - **Cite every fact.** Wrap each rendered fact in an element carrying
@@ -70,7 +104,7 @@ HTML is the form `fathom check` reads; PDF and published pages print from it.
   formatting a number are presentation. A difference, a sum, or a rate is a new
   fact: record it as a `measure` first.
 
-## 4. Check
+## 5. Check
 
 ```bash
 fathom check <view.html> --record <dir>
@@ -78,14 +112,20 @@ fathom check <view.html> --record <dir>
 
 | Exit | Meaning | Do |
 | --- | --- | --- |
-| 0 | Every number sits in a citation, every citation resolves as of the stamped version, and every cited number is held by a cited row | Publish (step 5) |
+| 0 | Every number sits in a citation, every citation resolves as of the stamped version, every cited number is held by a cited row, and no cited fact is narrower than the stamped visibility | Publish (step 6) |
 | 3 | Each failure is printed with its text | Fix the view, or record the missing fact and render again. Never publish a failing view |
 | 1 | No record, or no such version | Report it |
 
 The check works on facts, not wording: two renders of the same inputs can phrase
 things differently and both pass.
 
-## 5. Publish in the format
+## 6. Publish in the format
+
+**Check the destination first.** Who can read where the view is going has to be
+within its stamped visibility. A shared artifact, a PDF sent to a list, and a
+chat post each reach whoever holds the link or the channel. When the
+destination is wider, stop and ask: render again at the wider visibility (step
+3 leaves out what can't go), or publish somewhere narrower.
 
 | Format | How |
 | --- | --- |
@@ -98,8 +138,8 @@ A view published once and later edited by hand has drifted from the record.
 When the user brings back an edited view, compare it with what was rendered, and
 offer to record any new fact it carries and render again.
 
-## 6. Report
+## 7. Report
 
-Name each view with its brief, version, and format, linked to where it lives,
-the `fathom check` result line, and what each view leaves out with the view that
-carries it.
+Name each view with its brief, version, visibility, and format, linked to where
+it lives, the `fathom check` result line, what each view leaves out with the
+view that carries it, and each fact left out for its visibility.

@@ -46,11 +46,13 @@ Verify a change by exercising the CLI against a scratch record outside the repo:
   in `docs/extending.md`. `fathom brief` prints the resolved stack plus every
   framing rule it names, and that output is what `fathom:render` follows.
 - **Views.** `fathom:render` writes HTML stamped with
-  `<meta name="fathom-version">` and `<meta name="fathom-audience">`, wrapping
-  each fact in `data-fact="<key>"` and non-fact numbers in `data-literal`.
-  `fathom check` parses that HTML and fails any visible number whose digits none
-  of its cited rows hold as of the stamped version. `to-pdf.py` refuses a
-  stamped view unless given `--record`, and runs the check before printing.
+  `<meta name="fathom-version">`, `<meta name="fathom-audience">`, and
+  `<meta name="fathom-visibility">`, wrapping each fact in `data-fact="<key>"`
+  and non-fact numbers in `data-literal`. `fathom check` parses that HTML and
+  fails any visible number whose digits none of its cited rows hold as of the
+  stamped version, and any cited row whose `visibility` is narrower than the
+  view's. `to-pdf.py` refuses a stamped view unless given `--record`, and runs
+  the check before printing.
 - **Plugin root.** Skills call the CLI as `${CLAUDE_PLUGIN_ROOT}/scripts/fathom`;
   run from a checkout, the script falls back to its own parent directory to find
   `kinds/`.

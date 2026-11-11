@@ -16,6 +16,12 @@ schema.yml, briefs/*.md, and optionally framing/*.md and sources.md. A kind
 whose schema.yml names `extends: <kind>` inherits that kind's fact types,
 briefs, framing rules, and sources, and replaces any it redefines.
 
+A row may carry a visibility, the levels a GitLab project uses: public (anyone),
+internal (anyone in the organization), or private (the people on the work). A
+row without one takes its key's previous visibility. A view stamps the
+visibility of where it is published, and check fails any cited row narrower
+than that.
+
 Exit codes:
   0  done; for check, the view passed
   1  bad input, an invalid row, or a missing record, kind, or brief
@@ -34,6 +40,7 @@ import yaml
 
 PLUGIN_ROOT = Path(os.environ.get("CLAUDE_PLUGIN_ROOT") or Path(__file__).resolve().parent.parent)
 CERTAINTY = ("measured", "observed", "inferred")
+VISIBILITY = ("public", "internal", "private")
 KEY = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 MARKUP = re.compile(r"<[a-zA-Z/!?]")
 DIGITS = re.compile(r"\d+")
@@ -143,7 +150,7 @@ class Record:
 
     def validate(self, row, pending):
         errors = []
-        unknown = set(row) - {"key", "type", "certainty", "basis", "fields", "retracted"}
+        unknown = set(row) - {"key", "type", "certainty", "basis", "fields", "retracted", "visibility"}
         if unknown:
             errors.append(f"unknown row properties: {', '.join(sorted(unknown))}")
         key = row.get("key")
@@ -156,6 +163,8 @@ class Record:
         earlier = next((r for r in reversed(pending + self.rows) if r["key"] == key), None)
         if earlier and earlier["type"] != ftype:
             errors.append(f"key {key!r} is a {earlier['type']}; a key keeps its type")
+        if "visibility" in row and row["visibility"] not in VISIBILITY:
+            errors.append(f"visibility must be one of {', '.join(VISIBILITY)}, widest first")
         if row.get("retracted"):
             if earlier is None:
                 errors.append(f"cannot retract {key!r}: the record has no row for it")
@@ -194,12 +203,16 @@ class Record:
             for row in pending:
                 seq += 1
                 stored = {"seq": seq, "key": row["key"], "type": row["type"], "recorded": now}
-                for k in ("certainty", "basis", "fields", "retracted"):
+                for k in ("certainty", "basis", "fields", "retracted", "visibility"):
                     if k in row:
                         stored[k] = row[k]
+                earlier = next((r for r in reversed(self.rows) if r["key"] == row["key"]), None)
+                if "visibility" not in stored and not row.get("retracted") and earlier and earlier.get("visibility"):
+                    stored["visibility"] = earlier["visibility"]
                 out.write(dump([stored]))
                 self.rows.append(stored)
-                print(f"v{seq} {stored['key']}{' (retracted)' if row.get('retracted') else ''}")
+                note = " (retracted)" if row.get("retracted") else f" ({stored['visibility']})" if stored.get("visibility") else ""
+                print(f"v{seq} {stored['key']}{note}")
 
 
 def field_errors(fields, spec):
@@ -339,10 +352,20 @@ def check(view_path, record):
         return 3
     if not parser.meta.get("fathom-audience"):
         failures.append(("<head>", "no <meta name=\"fathom-audience\"> stamp"))
+    visibility = parser.meta.get("fathom-visibility")
+    if visibility not in VISIBILITY:
+        failures.append(("<head>", f"no <meta name=\"fathom-visibility\"> stamp naming one of {', '.join(VISIBILITY)}"))
     version = int(stamp)
     facts = record.as_of(version)
     for key in sorted(parser.cited - set(facts)):
         failures.append((f'data-fact="{key}"', f"cites a fact the record doesn't hold as of v{version}"))
+    unclassified = 0
+    for key in sorted(parser.cited & set(facts)):
+        level = facts[key].get("visibility")
+        if level is None:
+            unclassified += 1
+        elif visibility in VISIBILITY and VISIBILITY.index(level) > VISIBILITY.index(visibility):
+            failures.append((f'data-fact="{key}"', f"is {level}, narrower than this view's {visibility} visibility"))
     checked = literal = 0
     for text, keys, is_literal in parser.numbers:
         if is_literal:
@@ -359,8 +382,9 @@ def check(view_path, record):
     for where, why in failures:
         print(f"FAIL {where}: {why}")
     verdict = "failed" if failures else "passed"
-    print(f"{view_path}: {verdict}; v{version}, {parser.meta.get('fathom-audience', '?')}, "
-          f"{len(parser.cited)} facts cited, {checked} numbers checked, {literal} marked literal, {len(failures)} failures")
+    print(f"{view_path}: {verdict}; v{version}, {parser.meta.get('fathom-audience', '?')}, {visibility or '?'} visibility, "
+          f"{len(parser.cited)} facts cited ({unclassified} unclassified), {checked} numbers checked, "
+          f"{literal} marked literal, {len(failures)} failures")
     return 3 if failures else 0
 
 
@@ -402,7 +426,20 @@ def cmd_show(args):
         return
     print(f"{record.meta.get('title')} ({record.meta['kind']}) as of v{record.version if args.as_of is None else args.as_of}: {len(facts)} facts")
     for r in sorted(facts.values(), key=lambda r: (r["type"], r["key"])):
-        print(f"  {r['key']}  [{r['type']}, {r['certainty']}, v{r['seq']}]  {yaml.safe_dump(r['fields'], default_flow_style=True, width=10**6, allow_unicode=True).strip()}")
+        print(f"  {r['key']}  [{r['type']}, {r['certainty']}, {r.get('visibility', 'unclassified')}, v{r['seq']}]  {yaml.safe_dump(r['fields'], default_flow_style=True, width=10**6, allow_unicode=True).strip()}")
+
+
+def cmd_classify(args):
+    record = Record(args.dir)
+    facts = record.as_of()
+    missing = [k for k in args.keys if k not in facts]
+    if missing:
+        fail(f"the record holds no current fact {', '.join(map(repr, missing))}")
+    rows = []
+    for key in args.keys:
+        row = {k: v for k, v in facts[key].items() if k in ("key", "type", "certainty", "basis", "fields")}
+        rows.append({**row, "visibility": args.visibility})
+    record.append(rows)
 
 
 def cmd_history(args):
@@ -437,9 +474,11 @@ def cmd_brief(args):
     if not path:
         fail(f"no brief {args.name!r}; this kind has: {', '.join(sorted(listed(chain, 'briefs'))) or 'none'}")
     meta, _ = front_matter(path)
-    missing = [k for k in ("audience", "needs", "bottom-line", "tone", "leaves-out") if not meta.get(k)]
+    missing = [k for k in ("audience", "visibility", "needs", "bottom-line", "tone", "leaves-out") if not meta.get(k)]
     if missing:
         fail(f"{path} is missing {', '.join(missing)} in its front matter")
+    if meta["visibility"] not in VISIBILITY:
+        fail(f"{path} names visibility {meta['visibility']!r}; use one of {', '.join(VISIBILITY)}")
     framing, current = list(meta.get("framing") or []), meta
     print(f"# brief: {args.name} ({kind}) {path}\n")
     print(path.read_text())
@@ -483,6 +522,12 @@ def build_parser():
     s.add_argument("--type")
     s.add_argument("--full", action="store_true", help="every field of every row, as YAML")
     s.set_defaults(func=cmd_show)
+
+    s = sub.add_parser("classify", help="set who may read facts, as a new row of each")
+    s.add_argument("dir")
+    s.add_argument("visibility", choices=VISIBILITY)
+    s.add_argument("keys", nargs="+", metavar="key")
+    s.set_defaults(func=cmd_classify)
 
     s = sub.add_parser("history", help="every row for one key")
     s.add_argument("dir")

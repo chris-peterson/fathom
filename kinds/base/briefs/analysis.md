@@ -1,5 +1,6 @@
 ---
 audience: engineers who will check the reasoning or act on it
+visibility: private
 needs: what happened, the causal chain, how sure we are of each step, and what to do next
 bottom-line: what happened and why, in one sentence, with the mechanism named
 tone: precise; identifiers and links wherever a reader would look something up

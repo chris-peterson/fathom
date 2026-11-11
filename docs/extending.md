@@ -44,6 +44,7 @@ Front matter says who the view is for; the body says how to build it.
 ```yaml
 ---
 audience: <who reads it>
+visibility: <public | internal | private>   # where its views are published, as GitLab names the levels
 needs: <what they need from it>
 bottom-line: <the one line it opens with>
 tone: <register, and how things are named>

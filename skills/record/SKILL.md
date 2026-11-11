@@ -92,6 +92,13 @@ Rules the schema can't enforce:
 - **Record names under every alias.** An `entity` row's `ids` map holds each
   name sources use for the thing (instance ID, host name, IP, log host). This is
   the identifier map every timeline needs.
+- **Name secrets, never their values.** A token, password, or key in the
+  evidence is recorded as the name it has in its secret store. A record is read
+  by every render, so a value written here can reach any view.
+- **Leave visibility to the render.** A row may carry `visibility: <public |
+  internal | private>` when the source states it (a document marked
+  confidential, an export only admins can pull). Otherwise record the fact
+  without one; `/fathom:render` judges it and asks the user when unsure.
 - **Retract rather than delete.** A fact found false gets a row with
   `retracted: true` and a basis saying why. Views as of later versions drop it;
   views as of earlier ones still render it, stamped with their version.

@@ -1,5 +1,6 @@
 ---
 audience: managers, product owners, and teams whose work was blocked, who need the mechanism and not the evidence
+visibility: internal
 needs: to see what broke and why the fix holds, without knowing the system
 bottom-line: the limit and what crossed it, in plain words ("a node has room for two copies; a reload briefly starts a third")
 tone: plain words; things named by their role ("the old proxy", "another app deploys"), identifiers only in hover text

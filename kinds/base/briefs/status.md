@@ -1,5 +1,6 @@
 ---
 audience: managers and planners, and teams waiting on the outcome
+visibility: internal
 needs: whether the work is finished, what it cost, and what is left for them to decide
 bottom-line: the state of the work and the one decision or ask it needs, in one sentence
 tone: plain words; name things by their role, not their identifiers
