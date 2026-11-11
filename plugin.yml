@@ -15,8 +15,12 @@ validate:
         CLAUDE.md at the root is this repo's own agent instructions, not context
         the plugin ships. It points at AGENTS.md, which every agent reads.
 
+marketplace:
+  category: documentation
+  homepage: https://chris-peterson.github.io/fathom/#/
+
 suite:
-  group: record
+  group: charts
   activations: [user]
   gloss: "fathom: one record of facts, rendered for each reader."
   pitch: "Stop writing the same facts into three documents that drift apart. Record them once, render every reader's view from the record."
