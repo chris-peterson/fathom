@@ -1,0 +1,528 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["pyyaml>=6"]
+# ///
+"""fathom: one record of facts, rendered for each reader.
+
+A record is a directory holding fathom.yml (its kind and title) and
+record.yml (its rows, a YAML list, append-only). The record's version is the seq of its
+last row; reading as of version N gives, for each key, its latest row with
+seq <= N.
+
+Kinds are looked up by name in each directory of FATHOM_KINDS
+(os.pathsep-separated), then in the plugin's kinds/. A kind is a directory with
+schema.yml, briefs/*.md, and optionally framing/*.md and sources.md. A kind
+whose schema.yml names `extends: <kind>` inherits that kind's fact types,
+briefs, framing rules, and sources, and replaces any it redefines.
+
+Exit codes:
+  0  done; for check, the view passed
+  1  bad input, an invalid row, or a missing record, kind, or brief
+  2  usage
+  3  check found failures; each is printed with its text
+"""
+import argparse
+import os
+import re
+import sys
+from datetime import date, datetime, timezone
+from html.parser import HTMLParser
+from pathlib import Path
+
+import yaml
+
+PLUGIN_ROOT = Path(os.environ.get("CLAUDE_PLUGIN_ROOT") or Path(__file__).resolve().parent.parent)
+CERTAINTY = ("measured", "observed", "inferred")
+KEY = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+MARKUP = re.compile(r"<[a-zA-Z/!?]")
+DIGITS = re.compile(r"\d+")
+THOUSANDS = re.compile(r"(?<=\d),(?=\d{3}\b)")
+FIELD_TYPES = ("text", "number", "datetime", "date", "url", "enum", "list", "map")
+
+
+def fail(message):
+    sys.exit(f"fathom: {message}")
+
+
+def dump(data):
+    return yaml.safe_dump(data, sort_keys=False, allow_unicode=True, width=100)
+
+
+def as_text(value):
+    """YAML reads an unquoted timestamp as a datetime; the record stores the text."""
+    if isinstance(value, dict):
+        return {k: as_text(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [as_text(v) for v in value]
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    return value
+
+
+
+def kind_dirs(name):
+    path = [Path(p) for p in os.environ.get("FATHOM_KINDS", "").split(os.pathsep) if p]
+    path.append(PLUGIN_ROOT / "kinds")
+    return [d / name for d in path if (d / name / "schema.yml").is_file()]
+
+
+def kind_chain(name):
+    """The kind's directory, then its base's, and so on."""
+    chain, seen = [], []
+    while name:
+        if name in seen:
+            fail(f"kind {name!r} extends itself through {' -> '.join(seen)}")
+        seen.append(name)
+        found = kind_dirs(name)
+        if not found:
+            fail(f"no kind named {name!r} in FATHOM_KINDS or {PLUGIN_ROOT / 'kinds'}")
+        schema = yaml.safe_load((found[0] / "schema.yml").read_text()) or {}
+        chain.append((name, found[0], schema))
+        name = schema.get("extends")
+    return chain
+
+
+def fact_types(chain):
+    types = {}
+    for _, _, schema in reversed(chain):
+        types.update(schema.get("facts") or {})
+    return types
+
+
+def find_in_chain(chain, sub, name, start=0):
+    for i, (kind, d, _) in enumerate(chain[start:], start):
+        f = d / sub / f"{name}.md"
+        if f.is_file():
+            return i, kind, f
+    return None, None, None
+
+
+def listed(chain, sub):
+    names = {}
+    for kind, d, _ in reversed(chain):
+        for f in sorted((d / sub).glob("*.md")) if (d / sub).is_dir() else []:
+            names[f.stem] = kind
+    return names
+
+
+def front_matter(path):
+    text = path.read_text()
+    if not text.startswith("---\n"):
+        return {}, text
+    head, _, body = text[4:].partition("\n---\n")
+    return yaml.safe_load(head) or {}, body
+
+
+
+class Record:
+    def __init__(self, directory):
+        self.dir = Path(directory)
+        meta = self.dir / "fathom.yml"
+        if not meta.is_file():
+            fail(f"no record at {self.dir} (missing fathom.yml); start one with `fathom init`")
+        self.meta = yaml.safe_load(meta.read_text()) or {}
+        self.path = self.dir / "record.yml"
+        self.rows = (yaml.safe_load(self.path.read_text()) if self.path.exists() else None) or []
+        self.chain = kind_chain(self.meta.get("kind") or fail(f"{meta} names no kind"))
+        self.types = fact_types(self.chain)
+
+    @property
+    def version(self):
+        return self.rows[-1]["seq"] if self.rows else 0
+
+    def as_of(self, version=None):
+        version = self.version if version is None else version
+        if version > self.version:
+            fail(f"version {version} is past the record's latest, {self.version}")
+        latest = {}
+        for row in self.rows:
+            if row["seq"] <= version:
+                latest[row["key"]] = row
+        return {k: r for k, r in latest.items() if not r.get("retracted")}
+
+    def validate(self, row, pending):
+        errors = []
+        unknown = set(row) - {"key", "type", "certainty", "basis", "fields", "retracted"}
+        if unknown:
+            errors.append(f"unknown row properties: {', '.join(sorted(unknown))}")
+        key = row.get("key")
+        if not isinstance(key, str) or not KEY.match(key):
+            errors.append(f"key {key!r} must be lowercase letters, digits, and hyphens")
+        ftype = row.get("type")
+        spec = self.types.get(ftype)
+        if spec is None:
+            errors.append(f"type {ftype!r} is not in kind {self.meta['kind']!r} (has: {', '.join(sorted(self.types))})")
+        earlier = next((r for r in reversed(pending + self.rows) if r["key"] == key), None)
+        if earlier and earlier["type"] != ftype:
+            errors.append(f"key {key!r} is a {earlier['type']}; a key keeps its type")
+        if row.get("retracted"):
+            if earlier is None:
+                errors.append(f"cannot retract {key!r}: the record has no row for it")
+            if not row.get("basis"):
+                errors.append("a retraction needs a basis: why the fact no longer holds")
+            return errors
+        if row.get("certainty") not in CERTAINTY:
+            errors.append(f"certainty must be one of {', '.join(CERTAINTY)}")
+        if not isinstance(row.get("basis"), str) or not row["basis"].strip():
+            errors.append("basis is required: the record or reasoning the fact rests on")
+        elif MARKUP.search(row["basis"]):
+            errors.append("basis holds markup; store text, and let views present it")
+        fields = row.get("fields")
+        if not isinstance(fields, dict):
+            errors.append("fields must be an object")
+        elif spec is not None:
+            errors += field_errors(fields, spec.get("fields") or {})
+        return errors
+
+    def append(self, rows):
+        pending, problems = [], []
+        for i, row in enumerate(rows):
+            errors = self.validate(row, pending)
+            if errors:
+                problems.append((row.get("key", f"row {i + 1}"), errors))
+            else:
+                pending.append(row)
+        if problems:
+            for key, errors in problems:
+                for e in errors:
+                    print(f"{key}: {e}", file=sys.stderr)
+            fail(f"recorded nothing: {len(problems)} of {len(rows)} rows are invalid")
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        seq = self.version
+        with self.path.open("a") as out:
+            for row in pending:
+                seq += 1
+                stored = {"seq": seq, "key": row["key"], "type": row["type"], "recorded": now}
+                for k in ("certainty", "basis", "fields", "retracted"):
+                    if k in row:
+                        stored[k] = row[k]
+                out.write(dump([stored]))
+                self.rows.append(stored)
+                print(f"v{seq} {stored['key']}{' (retracted)' if row.get('retracted') else ''}")
+
+
+def field_errors(fields, spec):
+    errors = []
+    for name in set(fields) - set(spec):
+        errors.append(f"field {name!r} is not in the schema (has: {', '.join(sorted(spec))})")
+    for name, f in spec.items():
+        if name not in fields or fields[name] in (None, ""):
+            if f.get("required"):
+                errors.append(f"field {name!r} is required")
+            continue
+        value, kind = fields[name], f.get("type", "text")
+        problem = type_error(value, kind, f)
+        if problem:
+            errors.append(f"field {name!r} {problem}")
+    return errors
+
+
+def type_error(value, kind, spec):
+    if kind == "text":
+        if not isinstance(value, str):
+            return "must be text"
+        if MARKUP.search(value):
+            return "holds markup; store text (Markdown inline code, bold, and links are allowed)"
+    elif kind == "number":
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return "must be a number"
+    elif kind == "datetime":
+        try:
+            parsed = datetime.fromisoformat(str(value))
+        except ValueError:
+            return f"must be an ISO 8601 date and time: {value!r}"
+        if parsed.tzinfo is None:
+            return f"needs a UTC offset, so every source merges into one zone: {value!r}"
+    elif kind == "date":
+        try:
+            date.fromisoformat(str(value))
+        except ValueError:
+            return f"must be YYYY-MM-DD: {value!r}"
+    elif kind == "url":
+        if not isinstance(value, str) or not re.match(r"https?://", value):
+            return f"must be an http(s) URL: {value!r}"
+    elif kind == "enum":
+        if value not in (spec.get("values") or []):
+            return f"must be one of {', '.join(spec.get('values') or [])}: {value!r}"
+    elif kind == "list":
+        if not isinstance(value, list) or not all(isinstance(v, str) and not MARKUP.search(v) for v in value):
+            return "must be a list of text"
+    elif kind == "map":
+        if not isinstance(value, dict) or not all(isinstance(v, str) for v in value.values()):
+            return "must be an object of text values"
+    else:
+        return f"has unknown schema type {kind!r} (types: {', '.join(FIELD_TYPES)})"
+    return None
+
+
+
+VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
+HIDDEN = {"script", "style", "head", "title", "template", "noscript"}
+
+
+class ViewParser(HTMLParser):
+    """Collects the stamp, every citation, and every visible number with its citations."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.stack = []  # (tag, cited keys, literal, hidden)
+        self.meta = {}
+        self.cited = set()
+        self.numbers = []  # (text, keys, literal)
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        if tag == "meta" and (a.get("name") or "").startswith("fathom-"):
+            self.meta[a["name"]] = a.get("content", "")
+        if tag in VOID:
+            return
+        keys = set((a.get("data-fact") or "").split())
+        self.cited |= keys
+        parent = self.stack[-1] if self.stack else ("", frozenset(), False, False)
+        self.stack.append((tag, parent[1] | keys, parent[2] or "data-literal" in a, parent[3] or tag in HIDDEN))
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+        if tag not in VOID and self.stack:
+            self.stack.pop()
+
+    def handle_endtag(self, tag):
+        for i in range(len(self.stack) - 1, -1, -1):
+            if self.stack[i][0] == tag:
+                del self.stack[i:]
+                return
+
+    def handle_data(self, data):
+        _, keys, literal, hidden = self.stack[-1] if self.stack else ("", frozenset(), False, False)
+        if hidden:
+            return
+        text = " ".join(data.split())
+        if DIGITS.search(text):
+            self.numbers.append((text, keys, literal))
+
+
+def digit_runs(text):
+    return {int(d) for d in DIGITS.findall(THOUSANDS.sub("", text))}
+
+
+def row_runs(row):
+    runs = set()
+
+    def walk(v):
+        if isinstance(v, dict):
+            for x in v.values():
+                walk(x)
+        elif isinstance(v, list):
+            for x in v:
+                walk(x)
+        elif v is not None and not isinstance(v, bool):
+            s = str(v)
+            runs.update(digit_runs(s))
+            try:
+                t = datetime.fromisoformat(s)
+                runs.add(t.hour % 12 or 12)
+            except ValueError:
+                pass
+
+    walk(row.get("fields"))
+    return runs
+
+
+def check(view_path, record):
+    parser = ViewParser()
+    parser.feed(Path(view_path).read_text())
+    failures = []
+    stamp = parser.meta.get("fathom-version")
+    if not stamp or not stamp.isdigit():
+        print(f"FAIL {view_path}: no <meta name=\"fathom-version\"> stamp", file=sys.stdout)
+        return 3
+    if not parser.meta.get("fathom-audience"):
+        failures.append(("<head>", "no <meta name=\"fathom-audience\"> stamp"))
+    version = int(stamp)
+    facts = record.as_of(version)
+    for key in sorted(parser.cited - set(facts)):
+        failures.append((f'data-fact="{key}"', f"cites a fact the record doesn't hold as of v{version}"))
+    checked = literal = 0
+    for text, keys, is_literal in parser.numbers:
+        if is_literal:
+            literal += 1
+            continue
+        checked += 1
+        if not keys:
+            failures.append((text, "states a number outside any citation"))
+            continue
+        held = set().union(*(row_runs(facts[k]) for k in keys if k in facts))
+        missing = sorted(digit_runs(text) - held)
+        if missing:
+            failures.append((text, f"has {', '.join(map(str, missing))}, which none of {', '.join(sorted(keys))} holds as of v{version}"))
+    for where, why in failures:
+        print(f"FAIL {where}: {why}")
+    verdict = "failed" if failures else "passed"
+    print(f"{view_path}: {verdict}; v{version}, {parser.meta.get('fathom-audience', '?')}, "
+          f"{len(parser.cited)} facts cited, {checked} numbers checked, {literal} marked literal, {len(failures)} failures")
+    return 3 if failures else 0
+
+
+
+def cmd_init(args):
+    d = Path(args.dir)
+    if (d / "fathom.yml").exists():
+        fail(f"{d} already holds a record")
+    kind_chain(args.kind)
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "fathom.yml").write_text(yaml.safe_dump({"kind": args.kind, "title": args.title or d.name}, sort_keys=False))
+    (d / "record.yml").touch()
+    print(f"{d}: new {args.kind} record, v0")
+
+
+def cmd_add(args):
+    record = Record(args.dir)
+    text = sys.stdin.read().strip()
+    if not text:
+        fail("add reads rows from stdin: one row, or a list of rows, as YAML or JSON")
+    try:
+        data = yaml.safe_load(text)
+    except yaml.YAMLError as e:
+        fail(f"stdin is not YAML or JSON: {e}")
+    rows = data if isinstance(data, list) else [data]
+    if not all(isinstance(r, dict) for r in rows):
+        fail("each row must be a mapping with key, type, certainty, basis, and fields")
+    record.append([as_text(r) for r in rows])
+
+
+def cmd_show(args):
+    record = Record(args.dir)
+    facts = record.as_of(args.as_of)
+    if args.type:
+        facts = {k: r for k, r in facts.items() if r["type"] == args.type}
+    if args.full:
+        print(dump({"version": record.version if args.as_of is None else args.as_of, "kind": record.meta["kind"],
+                    "title": record.meta.get("title"), "facts": list(facts.values())}), end="")
+        return
+    print(f"{record.meta.get('title')} ({record.meta['kind']}) as of v{record.version if args.as_of is None else args.as_of}: {len(facts)} facts")
+    for r in sorted(facts.values(), key=lambda r: (r["type"], r["key"])):
+        print(f"  {r['key']}  [{r['type']}, {r['certainty']}, v{r['seq']}]  {yaml.safe_dump(r['fields'], default_flow_style=True, width=10**6, allow_unicode=True).strip()}")
+
+
+def cmd_history(args):
+    record = Record(args.dir)
+    rows = [r for r in record.rows if r["key"] == args.key]
+    if not rows:
+        fail(f"the record has no rows for {args.key!r}")
+    print(dump(rows), end="")
+
+
+def cmd_version(args):
+    print(Record(args.dir).version)
+
+
+def cmd_kind(args):
+    chain = kind_chain(args.name) if args.name else Record(args.dir).chain
+    print("kind: " + " -> ".join(f"{k} ({d})" for k, d, _ in chain))
+    print("facts:")
+    for name, spec in sorted(fact_types(chain).items()):
+        fields = ", ".join(f"{f}{'*' if s.get('required') else ''}:{s.get('type', 'text')}" for f, s in (spec.get("fields") or {}).items())
+        print(f"  {name}: {spec.get('about', '')}\n    {fields}")
+    for sub in ("briefs", "framing"):
+        names = listed(chain, sub)
+        print(f"{sub}: " + (", ".join(f"{n} ({k})" for n, k in sorted(names.items())) or "none"))
+    sources = [str(d / "sources.md") for _, d, _ in reversed(chain) if (d / "sources.md").is_file()]
+    print("sources: " + (", ".join(sources) or "none"))
+
+
+def cmd_brief(args):
+    chain = Record(args.dir).chain if args.dir else kind_chain(args.kind)
+    i, kind, path = find_in_chain(chain, "briefs", args.name)
+    if not path:
+        fail(f"no brief {args.name!r}; this kind has: {', '.join(sorted(listed(chain, 'briefs'))) or 'none'}")
+    meta, _ = front_matter(path)
+    missing = [k for k in ("audience", "needs", "bottom-line", "tone", "leaves-out") if not meta.get(k)]
+    if missing:
+        fail(f"{path} is missing {', '.join(missing)} in its front matter")
+    framing, current = list(meta.get("framing") or []), meta
+    print(f"# brief: {args.name} ({kind}) {path}\n")
+    print(path.read_text())
+    while current.get("extends") is True:
+        i, kind, path = find_in_chain(chain, "briefs", args.name, i + 1)
+        if not path:
+            fail(f"brief {args.name!r} extends a brief of the same name, which no base kind has")
+        current, body = front_matter(path)
+        framing += [r for r in current.get("framing") or [] if r not in framing]
+        print(f"\n# extended brief: {args.name} ({kind}) {path}\n")
+        print(body)
+    for rule in framing:
+        _, rkind, rpath = find_in_chain(chain, "framing", rule)
+        if not rpath:
+            fail(f"brief {args.name!r} names framing rule {rule!r}, which this kind lacks")
+        print(f"\n# framing: {rule} ({rkind}) {rpath}\n")
+        print(rpath.read_text())
+
+
+def cmd_check(args):
+    return check(args.view, Record(args.record))
+
+
+def build_parser():
+    p = argparse.ArgumentParser(prog="fathom", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    s = sub.add_parser("init", help="start a record of a kind")
+    s.add_argument("dir")
+    s.add_argument("--kind", required=True)
+    s.add_argument("--title")
+    s.set_defaults(func=cmd_init)
+
+    s = sub.add_parser("add", help="validate rows from stdin and append them; all or nothing")
+    s.add_argument("dir")
+    s.set_defaults(func=cmd_add)
+
+    s = sub.add_parser("show", help="the facts as of a version")
+    s.add_argument("dir")
+    s.add_argument("--as-of", type=int)
+    s.add_argument("--type")
+    s.add_argument("--full", action="store_true", help="every field of every row, as YAML")
+    s.set_defaults(func=cmd_show)
+
+    s = sub.add_parser("history", help="every row for one key")
+    s.add_argument("dir")
+    s.add_argument("key")
+    s.set_defaults(func=cmd_history)
+
+    s = sub.add_parser("version", help="the record's latest version")
+    s.add_argument("dir")
+    s.set_defaults(func=cmd_version)
+
+    s = sub.add_parser("kind", help="a kind's fact types, briefs, framing rules, and sources")
+    g = s.add_mutually_exclusive_group(required=True)
+    g.add_argument("dir", nargs="?")
+    g.add_argument("--name")
+    s.set_defaults(func=cmd_kind)
+
+    s = sub.add_parser("brief", help="print a brief and the framing rules it names")
+    g = s.add_mutually_exclusive_group(required=True)
+    g.add_argument("--record", dest="dir")
+    g.add_argument("--kind")
+    s.add_argument("name")
+    s.set_defaults(func=cmd_brief)
+
+    s = sub.add_parser("check", help="check a rendered HTML view against the record")
+    s.add_argument("view")
+    s.add_argument("--record", required=True)
+    s.set_defaults(func=cmd_check)
+    return p
+
+
+def main(argv):
+    if argv[:1] == ["help"]:
+        argv = ["--help"]
+    parser = build_parser()
+    if not argv:
+        parser.print_help(sys.stderr)
+        return 2
+    args = parser.parse_args(argv)
+    return args.func(args) or 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

@@ -1,0 +1,42 @@
+/* The `fancy` look: a dark header band, serif headings, dark table heads, status pills.
+   Pass it with --css and --margin 0: the band runs edge to edge, and the body pads itself. */
+@import url("https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=IBM+Plex+Mono&family=IBM+Plex+Sans:wght@400;600;700&display=swap");
+
+:root {
+  --fg: #1d1f2b; --muted: #5f6472; --rule: #d5d8e0; --accent: #1d1f2b; --tint: #f4f5f8;
+  --band: #1c1d2e; --band-fg: #ffffff; --band-muted: #a3a7b8; --band-rule: #3a3c52; --band-link: #8fb4ff;
+  --good: #1f7a3a; --good-bg: #e5f3ea; --warn: #9a6400; --warn-bg: #fdf1d6; --bad: #b02e2e; --bad-bg: #f9e3e3;
+  --body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --display: "DM Serif Display", Georgia, serif;
+  --mono: "IBM Plex Mono", Menlo, monospace;
+  --pad: 0.5in;
+}
+body { padding: 0 var(--pad) 0.3in !important; }
+
+header { background: var(--band); color: var(--band-fg); border: 0;
+  margin: 0 calc(-1 * var(--pad)) 10pt; padding: 0.2in var(--pad) 7pt; }
+header .eyebrow { color: var(--band-muted); letter-spacing: 0.2em; }
+header h1 { font-weight: 400; font-size: 18pt; margin: 2pt 0 6pt; padding-bottom: 6pt; border-bottom: 1px solid var(--band-rule); }
+header .meta, header .lede { color: var(--band-muted); }
+header a { color: var(--band-link); text-decoration-color: var(--band-link); }
+.meta-grid { display: flex; flex-wrap: wrap; gap: 4pt 28pt; }
+.meta-grid div { display: block; }
+.meta-grid dt { color: var(--band-muted); font-size: 6.5pt; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 1pt; }
+.meta-grid dd { color: var(--band-fg); }
+
+h2 { font: 400 13pt var(--display); text-transform: none; letter-spacing: 0; color: var(--fg);
+  border-bottom: 1px solid var(--rule); padding-bottom: 2pt; margin: 10pt 0 5pt; }
+.verdict { color: var(--good); font-weight: 600; padding: 5pt 10pt; }
+.verdict.warn { color: var(--warn); }
+.verdict.bad { color: var(--bad); }
+.verdict .eyebrow { font-size: 6.5pt; letter-spacing: 0.16em; margin-bottom: 1pt; }
+.facts { background: none; border: 1px solid var(--rule); border-radius: 4pt; }
+
+th { background: var(--band); color: var(--band-fg); font-size: 7pt; letter-spacing: 0.08em; text-transform: uppercase; border: 0; }
+th, td { padding: 2.5pt 6pt; }
+tr:nth-child(odd) td { background: #f8f9fb; }
+code { background: var(--tint); border-radius: 2pt; padding: 0 2pt; }
+.card { border-color: var(--rule); border-radius: 4pt; padding: 8pt 10pt; }
+.conclusion { border-radius: 4pt; padding: 8pt 10pt; }
+footer { border-color: var(--rule); }
+footer .label { display: block; text-align: center; text-transform: uppercase; letter-spacing: 0.2em; font-size: 7pt; margin-top: 4pt; }

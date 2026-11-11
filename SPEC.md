@@ -24,6 +24,9 @@ below its category's heading, so every requirement has a linkable anchor
 - **record**: every row for one piece of work. Append-only.
 - **schema**: the declaration of every kind of fact a record can hold. The
   record's storage and validation are generated from it.
+- **kind**: a schema, the briefs for its readers, the framing rules those
+  briefs apply, and where its evidence comes from, for one kind of work. A kind
+  can extend another.
 - **version**: a point in the record's history. Reading the record *as of* a
   version gives, for each fact, the latest row recorded at or before it.
 - **certainty**: how a fact is known: measured, observed, or inferred.
@@ -32,6 +35,9 @@ below its category's heading, so every requirement has a linkable anchor
 - **audience brief**: the instructions the renderer follows to turn the record
   into a view, written the way a skill is: who the view is for, what they need
   from it, its tone and verbosity, and what it leaves out.
+- **bottom line**: the one statement a view's reader needs if they read nothing
+  else, set by the view's brief and stated first
+  ([BLUF](https://en.wikipedia.org/wiki/BLUF_%28communication%29)).
 - **format**: the output medium: a web page, Markdown, a slide deck, a Word
   document, a chat post.
 - **style**: the visual treatment within a format.
@@ -86,6 +92,43 @@ The system shall read the record as of any version it holds.
 When a fact is recorded, the system shall accept it whether or not any view
 exists yet.
 
+#### `RECORD-08`
+When new evidence contradicts a fact the record holds, the system shall name the
+fact, both values, and both bases before recording the correction.
+
+#### `RECORD-09`
+When a fact is found false, the system shall record a retraction row with its
+basis, so reads as of later versions drop the fact and reads as of earlier
+versions keep it.
+
+#### `RECORD-10`
+If a row's timestamp carries no UTC offset, then the system shall refuse the
+row, so evidence from every source merges into one zone.
+
+#### `RECORD-11`
+If any row in one addition is invalid, then the system shall record none of
+them.
+
+### `KIND`
+Kinds of work
+
+#### `KIND-01`
+The system shall take each record's fact types, briefs, framing rules, and
+evidence sources from the kind the record names.
+
+#### `KIND-02`
+Where a kind extends another, the system shall give it the other kind's fact
+types, briefs, framing rules, and sources, replacing any it redefines.
+
+#### `KIND-03`
+Where a brief extends the same-named brief of the kind its kind extends, the
+system shall apply both briefs and the framing rules either names.
+
+#### `KIND-04`
+The system shall look a kind up in the directories a project names before the
+kinds it ships with, so a team can add or extend a kind without changing the
+plugin.
+
 ### `VIEW`
 Rendering views
 
@@ -114,26 +157,39 @@ When the same version, brief, format, and style are rendered again, the system
 shall produce a view stating the same facts.
 
 #### `VIEW-07`
-Where a view leaves out facts another view of the same record carries, the
-system shall link the view to that other view.
-
-#### `VIEW-08`
 When the same record is rendered for several audiences, the system shall render
 every view from the same version unless a version is requested for one.
+
+### `COMM`
+Communication style: how a view reads
+
+#### `COMM-01`
+The system shall open every view with the bottom line its brief defines, before
+any detail, citing the facts it rests on.
+
+#### `COMM-02`
+Where a view leaves out facts another view of the same record carries, the
+system shall say what it leaves out and link the view to that other view.
+
+#### `COMM-03`
+The system shall state each fact's certainty in the terms its brief sets for
+the audience: the basis beside the claim for a reader who checks it, a label
+for a reader who acts on it.
+
+#### `COMM-04`
+Where a brief sets a framing rule (a blameless rewrite, a plain-words
+vocabulary), the system shall apply it to every view rendered from that brief.
 
 ### `BRIEF`
 Audience briefs
 
 #### `BRIEF-01`
 The system shall describe each audience in a brief that states who reads the
-view, what they need from it, its tone and verbosity, and what it leaves out.
+view, what they need from it, the bottom line it opens with, its tone and
+verbosity, and what it leaves out.
 
 #### `BRIEF-02`
 The system shall keep briefs as files reviewed and versioned with the schema.
-
-#### `BRIEF-03`
-Where a brief sets a framing rule (a blameless rewrite, a plain-words
-vocabulary), the system shall apply it to every view rendered from that brief.
 
 ### `CITE`
 Citations in a view
@@ -168,6 +224,30 @@ each failure with the view and the text that failed.
 #### `CHECK-05`
 When a view is published, the system shall have checked it at the version it is
 stamped with.
+
+### `FORMAT`
+Formats
+
+#### `FORMAT-01`
+The system shall render each view first as HTML, the form its checks read, and
+derive every other format from the checked HTML.
+
+#### `FORMAT-02`
+If a page stamped as a view is printed to PDF before its check passes, then the
+system shall refuse to print it.
+
+#### `FORMAT-03`
+When a page is printed to PDF, the system shall fit it to one US Letter page by
+default, at the largest scale between 75% and 100% that fits.
+
+#### `FORMAT-04`
+If a view does not fit its page budget, then the system shall render a shorter
+view from the same record version with a shorter brief, rather than condensing
+the view's text.
+
+#### `FORMAT-05`
+When a page is printed to PDF, the system shall keep every link its readers can
+open.
 
 ### `DRIFT`
 Views edited by hand

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{title}}</title>
+<!-- {{the source's font <link> tags, when matching an artifact}} -->
+<style>
+/* Tokens: set these from the source artifact's light theme to keep its look. */
+:root {
+  --fg: #1b1f24; --muted: #5d6670; --rule: #d8dce1; --accent: #2b5fb4; --tint: #f3f5f8;
+  --good: #1f7a3a; --good-bg: #e6f2ea; --warn: #9a6400; --warn-bg: #fdf3dc; --bad: #b02e2e; --bad-bg: #f8e4e4;
+  --same: #2b5fb4; --gone: #a9b4c2; --new: #c0392b;
+  --body: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --display: var(--body);
+  --mono: "SF Mono", Menlo, monospace;
+  --gap: 10pt;
+}
+* { box-sizing: border-box; }
+body { margin: 0; color: var(--fg); font: 10pt/1.4 var(--body); }
+header { border-bottom: 2px solid var(--fg); padding-bottom: 6pt; margin-bottom: var(--gap); }
+.eyebrow { color: var(--muted); font-size: 7.5pt; letter-spacing: 0.12em; text-transform: uppercase; }
+h1 { font: 700 18pt/1.15 var(--display); margin: 0 0 3pt; }
+.lede { font-size: 11pt; margin: 4pt 0 0; }
+.meta { color: var(--muted); font-size: 8.5pt; }
+.meta-grid { display: flex; flex-wrap: wrap; gap: 2pt 18pt; margin: 0; font-size: 8.5pt; }
+.meta-grid dt { color: var(--muted); }
+.meta-grid div { display: flex; gap: 4pt; }
+.meta-grid dd { margin: 0; }
+h2 { font: 700 11pt var(--display); text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent);
+  margin: var(--gap) 0 4pt; border-bottom: 1px solid var(--rule); padding-bottom: 2pt; }
+h3 { font-size: 10pt; margin: 6pt 0 3pt; }
+section:first-child > h2 { margin-top: 0; }
+p, ul, ol { margin: 0 0 5pt; }
+ul, ol { padding-left: 14pt; }
+li { margin-bottom: 2pt; }
+code { font: 8.5pt var(--mono); }
+a { color: inherit; text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 2pt; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18pt; }
+.verdict { border-left: 3pt solid var(--good); background: var(--good-bg); padding: 5pt 8pt; margin-bottom: var(--gap); }
+.verdict.warn { border-color: var(--warn); background: var(--warn-bg); }
+.verdict.bad { border-color: var(--bad); background: var(--bad-bg); }
+.verdict .eyebrow { color: inherit; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(110pt, 1fr)); gap: 6pt;
+  background: var(--tint); padding: 6pt 8pt; margin-bottom: var(--gap); }
+.facts b { display: block; font-size: 12pt; }
+.facts span { color: var(--muted); font-size: 8pt; }
+table { width: 100%; border-collapse: collapse; font-size: 8.5pt; line-height: 1.25; margin-bottom: 6pt; }
+th, td { text-align: left; vertical-align: top; padding: 2.5pt 5pt; border-bottom: 1px solid var(--rule); }
+th { color: var(--muted); font-weight: 600; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+tr.key td { background: var(--tint); font-weight: 600; }
+.why { color: var(--muted); font-size: 8pt; font-weight: 400; line-height: 1.3; }
+.pill { display: inline-block; font-size: 7pt; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 0.5pt 4pt; border-radius: 2pt; background: var(--tint); color: var(--muted); }
+.pill.good { background: var(--good-bg); color: var(--good); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.pill.bad { background: var(--bad-bg); color: var(--bad); }
+.card { border: 1px solid var(--rule); border-radius: 3pt; padding: 6pt 8pt; margin-bottom: 6pt; break-inside: avoid; }
+.card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8pt; font-weight: 700; margin-bottom: 4pt; }
+.conclusion { background: var(--tint); border: 1px solid var(--rule); border-radius: 3pt; padding: 6pt 8pt; margin-top: var(--gap); }
+.bar { display: inline-flex; width: 90pt; height: 6pt; margin-right: 4pt; vertical-align: middle; }
+.bar i { display: block; height: 100%; min-width: 2pt; }
+.same { background: var(--same); } .gone { background: var(--gone); } .new { background: var(--new); }
+.legend { color: var(--muted); font-size: 8pt; }
+.legend i { display: inline-block; width: 8pt; height: 6pt; margin: 0 3pt 0 8pt; }
+footer { margin-top: var(--gap); border-top: 1px solid var(--rule); padding-top: 4pt; color: var(--muted); font-size: 8pt; }
+</style>
+</head>
+<body>
+<header>
+  <div class="eyebrow">{{what kind of document: incident review, test report, security assessment}}</div>
+  <h1>{{the finding, when the page delivers a verdict; otherwise the title}}</h1>
+  <dl class="meta-grid">
+    <div><dt>Source</dt><dd>{{the artifact's name, when the H1 is a finding}}</dd></div>
+    <div><dt>Date</dt><dd>{{date}}</dd></div>
+    <div><dt>Author</dt><dd>{{author}}</dd></div>
+  </dl>
+</header>
+
+<div class="verdict">
+  <div class="eyebrow">{{overall assessment}}</div>
+  {{the one line a reader needs if they read nothing else; class "warn" or "bad" when the news is not good}}
+</div>
+
+<div class="facts">
+  <div><b>{{value}}</b><span>{{label}}</span></div>
+</div>
+
+<section>
+  <h2>{{full-width section, e.g. a before/after comparison}}</h2>
+  <div class="legend"><i class="same"></i>{{same in both}}<i class="gone"></i>{{before only}}<i class="new"></i>{{after only}}</div>
+  <table>
+    <tr><th>{{item}}</th><th class="num">{{before}}</th><th class="num">{{after}}</th><th>{{compared item by item}}</th></tr>
+    <tr class="key">
+      <td><a href="{{url}}">{{the row the reader should notice}}</a></td>
+      <td class="num"><a href="{{url}}">{{count}}</a></td>
+      <td class="num"><a href="{{url}}">{{count}}</a></td>
+      <td><span class="bar"><i class="same" style="width: {{% of the widest row}}%"></i><i class="gone" style="width: {{%; leave a zero segment out}}%"></i></span>{{10 same, 3 now pass}}</td>
+    </tr>
+  </table>
+</section>
+
+<section>
+  <h2>{{counts by category, explained in place}}</h2>
+  <table>
+    <tr><th>{{category}}</th><th class="num">{{before}}</th><th class="num">{{after}}</th></tr>
+    <tr><td><b>{{category, largest first}}</b><div class="why">{{one line on what it means}}</div></td><td class="num">{{n}}</td><td class="num">{{n}}</td></tr>
+  </table>
+</section>
+
+<div class="card">
+  <div class="card-head">{{one finding, one CVE, one incident}}<span class="pill good">{{status}}</span></div>
+  <p>{{body}}</p>
+</div>
+
+<div class="cols">
+  <section>
+    <h2>{{section}}</h2>
+    <p>{{body}}</p>
+  </section>
+  <section>
+    <h2>{{section}}</h2>
+    <ol><li>{{step}}</li></ol>
+  </section>
+</div>
+
+<div class="conclusion"><b>Conclusion:</b> {{the closing sentence, when the source has one}}</div>
+
+<footer>{{source line, or omit}}<span class="label">{{sensitivity label, only when the user or source names one}}</span></footer>
+</body>
+</html>

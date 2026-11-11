@@ -1,0 +1,62 @@
+# Fact types every kind of work starts from. A kind that extends base adds its
+# own types and may redefine one of these.
+kind: base
+facts:
+  event:
+    about: Something that happened at a point in time; one timeline row.
+    fields:
+      at: {type: datetime, required: true}
+      what: {type: text, required: true}
+      actor: {type: text}
+      source: {type: url}
+      phase: {type: text}
+  gap:
+    about: A window with no data from a source; often when something was stuck.
+    fields:
+      start: {type: datetime, required: true}
+      end: {type: datetime, required: true}
+      subject: {type: text, required: true}
+      source: {type: url}
+  measure:
+    about: A number, with its unit and what it was measured over.
+    fields:
+      subject: {type: text, required: true}
+      value: {type: number, required: true}
+      unit: {type: text, required: true}
+      over: {type: text}
+      source: {type: url}
+  claim:
+    about: A finding stated in words ("the fix shipped", "only one environment was affected").
+    fields:
+      statement: {type: text, required: true}
+      confirm-by: {type: text}
+  entity:
+    about: A thing the work involves (a service, host, repo, change, person), with every name sources use for it.
+    fields:
+      name: {type: text, required: true}
+      role: {type: text, required: true}
+      ids: {type: map}
+      link: {type: url}
+  decision:
+    about: A choice made, and why.
+    fields:
+      question: {type: text, required: true}
+      choice: {type: text, required: true}
+      rationale: {type: text, required: true}
+      decided-by: {type: text}
+  action:
+    about: Work owed or done because of what was found.
+    fields:
+      what: {type: text, required: true}
+      state: {type: enum, values: [open, in-review, done, closed-by-decision], required: true}
+      owner: {type: text}
+      decided-by: {type: text}
+      link: {type: url}
+      rationale: {type: text}
+  source:
+    about: Where evidence lives, and how long its links keep working.
+    fields:
+      name: {type: text, required: true}
+      category: {type: text, required: true}
+      link: {type: url}
+      retention: {type: text}

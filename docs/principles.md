@@ -142,6 +142,11 @@ trade like that. A brief keeps "is it over, and what's left to decide" and drops
 the evidence. An analysis keeps the evidence and takes an hour to read. Each
 view says what it leaves out and links to the view that has it.
 
+Inside a view the same order holds: it opens with its bottom line for that
+reader ([BLUF](https://en.wikipedia.org/wiki/BLUF_%28communication%29)), and the
+detail below is there for the reader who chooses to read on. The link to the
+deeper view is the next step of that expansion.
+
 ### 10. A view is defined the way a skill is
 
 The instructions that turn the record into a view are written down, the way a

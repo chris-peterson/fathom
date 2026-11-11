@@ -1,0 +1,25 @@
+# An outage or degradation, reviewed after service is restored. One example of
+# a kind; a team extends it (`extends: incident`) to add its own sources,
+# briefs, or columns its template prescribes.
+kind: incident
+extends: base
+facts:
+  impact:
+    about: Who or what was affected, over which window.
+    fields:
+      start: {type: datetime, required: true}
+      end: {type: datetime}
+      scope: {type: text, required: true}
+      effect: {type: text, required: true}
+  cause:
+    about: The defect, which can sit latent for months, or the trigger that made it fire. Record one of each.
+    fields:
+      role: {type: enum, values: [defect, trigger], required: true}
+      statement: {type: text, required: true}
+      introduced: {type: date}
+      change: {type: url}
+  responder:
+    about: Someone who took part in the response. Names attach to responses, never to causes.
+    fields:
+      name: {type: text, required: true}
+      role: {type: text, required: true}
