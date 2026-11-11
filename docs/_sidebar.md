@@ -1,0 +1,7 @@
+- [Home](/)
+- [Principles](/principles)
+- [Extending](/extending)
+- [fathom:record](/skills/record)
+- [fathom:render](/skills/render)
+- [fathom:pdf](/skills/pdf)
+- [Requirements](/spec)

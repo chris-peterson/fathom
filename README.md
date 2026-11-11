@@ -18,18 +18,16 @@ other.
 
 ## Getting started
 
-```bash
-scripts/fathom init <dir> --kind incident --title "<title>"
-scripts/fathom kind <dir>              # fact types, briefs, sources
-echo '<row as YAML>' | scripts/fathom add <dir>
-scripts/fathom show <dir>
-scripts/fathom brief --record <dir> status
-scripts/fathom check <view.html> --record <dir>
-```
+Using fathom (the skills, the CLI, and kinds) is covered in
+[docs/README.md](docs/README.md), the home page of the docs site.
 
-The CLI runs with [uv](https://docs.astral.sh/uv/). In Claude Code,
-`/fathom:record` gathers facts, `/fathom:render` writes a view for one reader,
-and `/fathom:pdf` prints a view for readers outside Claude.
+To work on it:
+
+```bash
+scripts/fathom --help   # the CLI runs with uv; no install step
+just docs               # render the docs site into docs/
+just preview-docs       # serve it locally
+```
 
 ## Status
 

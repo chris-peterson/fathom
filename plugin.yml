@@ -1,0 +1,31 @@
+name: fathom
+version: 0.0.0
+description: "Keeps the facts of a piece of work in one versioned record and renders each reader's document from it, with every figure traced to a fact."
+author: chris-peterson
+repository: https://github.com/chris-peterson/fathom
+icon: .claude-plugin/icon.svg
+license: MIT
+keywords: [claude, documents, incidents, postmortem, record, views, citations]
+
+validate:
+  accept:
+    - warning: root
+      path: CLAUDE.md
+      because: >-
+        CLAUDE.md at the root is this repo's own agent instructions, not context
+        the plugin ships. It points at AGENTS.md, which every agent reads.
+
+suite:
+  group: record
+  activations: [user]
+  gloss: "fathom: one record of facts, rendered for each reader."
+  pitch: "Stop writing the same facts into three documents that drift apart. Record them once, render every reader's view from the record."
+  what: "Keeps the facts of a piece of work (an incident, an investigation) in one versioned record, then renders each reader's document from it: an analysis for engineers, a status for managers, an explainer for everyone else. Every figure in a view cites the fact it came from, and a check fails any number the record doesn't hold."
+  cmds:
+    - ["/fathom:record", "Turn evidence into facts in the record"]
+    - ["/fathom:render", "Write a view of the record for one reader"]
+    - ["/fathom:pdf", "Print a view for readers outside Claude"]
+
+docs:
+  code_languages: [bash, yaml, json]
+  mermaid: false
