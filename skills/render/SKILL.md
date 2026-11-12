@@ -132,7 +132,8 @@ destination is wider, stop and ask: render again at the wider visibility (step
 | A page in the repo or on disk | Save the checked HTML beside the record, named `<brief>-v<N>.html` |
 | A shared web page | Publish the checked HTML with the `Artifact` tool |
 | PDF | `/fathom:pdf` with the view and `--record`; it re-checks before printing |
-| Markdown, slides, a chat post, a word-processor document | Convert from the checked HTML, keeping every fact as the view states it, and say in the report that the converted copy is outside the check |
+| A Markdown page on a site that renders its inline HTML (docsify, for one) | Write the page itself as the view, and check the `.md`: the stamps go in as `<meta>` tags, each fact in an HTML element carrying its `data-fact` (a block, or a `<span>` inside a heading), so the published file is the checked one. A plain `#` line holding a number fails the check; cite it with a `<span>`, and strip the tags wherever the site reads the heading as text |
+| Other Markdown, slides, a chat post, a word-processor document | Convert from the checked HTML, keeping every fact as the view states it, and say in the report that the converted copy is outside the check |
 
 A view published once and later edited by hand has drifted from the record.
 When the user brings back an edited view, compare it with what was rendered, and

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **A `release` kind for announcing what a release shipped.** Its records hold each tool (new, released, or archived, with the job it helps with), each change a user would notice with whether it breaks, and the plans after the release on a rough timeline. Its `announcement` brief opens with what kind of release it is and what an existing user must do before upgrading, then cards for new tools, the major releases with breaking changes first, and the plans as a timeline. `sources.md` covers where release evidence comes from, including why a version is checked against its tag rather than a checkout.
+- **A Markdown page can be the checked view.** On a site that renders inline HTML, such as docsify, `/fathom:render` writes the page itself with its stamps as `<meta>` tags and each fact in an element carrying `data-fact`, and `fathom check` reads the `.md` as written, so the file readers get is the one that passed.
+
+### Fixed
+
+- **A kind whose enum lists a bare `yes` or `no` is refused with the field named.** YAML reads those as booleans, so no row could match, and the error for the first row crashed instead of saying why. Quote the values.
+
 ## 0.1.0
 
 ### Added

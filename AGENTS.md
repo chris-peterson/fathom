@@ -15,7 +15,7 @@ docs/principles.md   why documents are views, and the patterns this follows
 docs/extending.md    how a team adds or extends a kind
 scripts/fathom       the CLI: record, kinds, briefs, and the view check
 skills/              fathom:record, fathom:render, fathom:pdf
-kinds/               the kinds fathom ships: base, and incident as an example
+kinds/               the kinds fathom ships: base, and incident and release as examples
 ```
 
 ## Running it

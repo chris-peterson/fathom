@@ -85,9 +85,26 @@ def kind_chain(name):
         if not found:
             fail(f"no kind named {name!r} in FATHOM_KINDS or {PLUGIN_ROOT / 'kinds'}")
         schema = yaml.safe_load((found[0] / "schema.yml").read_text()) or {}
+        enum_values_are_text(name, schema)
         chain.append((name, found[0], schema))
         name = schema.get("extends")
     return chain
+
+
+def enum_values_are_text(kind, schema):
+    """Refuse a kind whose enum lists a value YAML didn't read as text.
+
+    A bare yes, no, on, or off is a boolean to YAML, so `values: [yes, no]`
+    loads as [True, False]: no row can match it, and reporting the mismatch
+    crashed instead of naming the field.
+    """
+    for ftype, spec in (schema.get("facts") or {}).items():
+        for field, f in ((spec or {}).get("fields") or {}).items():
+            bad = [v for v in (f or {}).get("values") or [] if not isinstance(v, str)]
+            if bad:
+                fail(f"kind {kind!r}: {ftype}.{field} lists enum values that aren't text "
+                     f"({', '.join(map(repr, bad))}); YAML reads a bare yes, no, on, or off "
+                     f"as a boolean, so quote them")
 
 
 def fact_types(chain):

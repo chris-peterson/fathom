@@ -133,6 +133,11 @@ The system shall look a kind up in the directories a project names before the
 kinds it ships with, so a team can add or extend a kind without changing the
 plugin.
 
+#### `KIND-05`
+If a kind's schema lists an enum value that isn't text, then the system shall
+refuse the kind and name the field, since YAML reads a bare `yes` or `no` as a
+boolean that no row can match.
+
 ### `VIEW`
 Rendering views
 
@@ -295,6 +300,11 @@ the view's text.
 #### `FORMAT-05`
 When a page is printed to PDF, the system shall keep every link its readers can
 open.
+
+#### `FORMAT-06`
+Where a Markdown page is published on a site that renders its inline HTML, the
+system shall accept the page itself as the view, stamped and cited in inline
+HTML and checked as written, so no copy outside the check reaches readers.
 
 ### `DRIFT`
 Views edited by hand
