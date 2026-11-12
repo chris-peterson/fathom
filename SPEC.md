@@ -133,6 +133,11 @@ The system shall look a kind up in the directories a project names before the
 kinds it ships with, so a team can add or extend a kind without changing the
 plugin.
 
+#### `KIND-05`
+If a kind's schema lists an enum value that isn't text, then the system shall
+refuse the kind and name the field, since YAML reads a bare `yes` or `no` as a
+boolean that no row can match.
+
 ### `VIEW`
 Rendering views
 
@@ -163,6 +168,13 @@ shall produce a view stating the same facts.
 #### `VIEW-07`
 When the same record is rendered for several audiences, the system shall render
 every view from the same version unless a version is requested for one.
+
+#### `VIEW-08`
+Before a view is written, the system shall vet each fact it will state: that its
+basis is firsthand and was read, that its certainty matches how it is known, and
+that it agrees with the other facts the view states. It shall confirm against a
+primary source each fact the bottom line, a breaking change, or a reader's next
+action rests on, and record what the vetting changes before rendering.
 
 ### `COMM`
 Communication style: how a view reads
@@ -228,6 +240,11 @@ each failure with the view and the text that failed.
 #### `CHECK-05`
 When a view is published, the system shall have checked it at the version it is
 stamped with.
+
+#### `CHECK-06`
+When a view is checked, the system shall report how the facts it cites are
+known (measured, observed, inferred) and name the inferred ones, since a passing
+check shows the view matches the record, not that the record is right.
 
 ### `ACCESS`
 Who may read a fact: a view is no wider than its narrowest fact
@@ -295,6 +312,11 @@ the view's text.
 #### `FORMAT-05`
 When a page is printed to PDF, the system shall keep every link its readers can
 open.
+
+#### `FORMAT-06`
+Where a Markdown page is published on a site that renders its inline HTML, the
+system shall accept the page itself as the view, stamped and cited in inline
+HTML and checked as written, so no copy outside the check reaches readers.
 
 ### `DRIFT`
 Views edited by hand

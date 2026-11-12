@@ -3,8 +3,10 @@
 fathom's core knows nothing about incidents, migrations, or test campaigns. A
 **kind** brings that knowledge: the fact types a record of that work can hold,
 the briefs for the people who read about it, and where its evidence comes from.
-fathom ships `base`, which fits any work, and `incident`, which extends it as an
-example. A team adds its own kind to carry what only it knows: its tools, its
+fathom ships `base`, which fits any work, and two kinds that extend it as
+examples: `incident`, for an outage reviewed afterward, and `release`, for
+announcing what a release of a suite of tools shipped and where it goes next. A
+team adds its own kind to carry what only it knows: its tools, its
 templates, its readers.
 
 ## What a kind holds

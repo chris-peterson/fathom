@@ -1,0 +1,30 @@
+# A release of a suite of tools: what shipped, what changed for people already
+# using it, and where it goes next.
+kind: release
+extends: base
+facts:
+  plugin:
+    about: A tool as the release presents it - what it does, and the job it helps with.
+    fields:
+      name: {type: text, required: true}
+      status: {type: enum, values: [new, released, archived], required: true}
+      summary: {type: text, required: true}
+      version: {type: text}
+      job: {type: text}
+      link: {type: url}
+      icon: {type: url}
+  change:
+    about: One change a user of the release would notice.
+    fields:
+      subject: {type: text, required: true}
+      statement: {type: text, required: true}
+      impact: {type: enum, values: [breaking, compatible], required: true}
+      link: {type: url}
+  plan:
+    about: Work planned after the release, placed on a rough timeline. A plan with no end is a milestone.
+    fields:
+      subject: {type: text, required: true}
+      what: {type: text, required: true}
+      start: {type: date, required: true}
+      end: {type: date}
+      scoped: {type: enum, values: [scoped, tentative], required: true}
