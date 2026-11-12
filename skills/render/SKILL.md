@@ -43,7 +43,31 @@ stop**: name the missing fact and record it first (`/fathom:record`), then
 render from the new version. A number typed into a view is a fact the record is
 missing.
 
-## 3. Judge who may read each fact
+## 3. Vet each fact the view will state
+
+`fathom check` proves a view says what the record says, not that the record is
+right. Recording stays fast on purpose, so a fact can arrive secondhand, with a
+basis nobody opened, or at a certainty it didn't earn. The render is the last
+stop before a reader acts on it, so vet the facts here:
+
+| Check | It fails when | Do |
+| --- | --- | --- |
+| **Firsthand** | The basis is another document about the work (an earlier view, a post, a summary, a slide) rather than the work's own record | Open what that document drew on, and record the fact again with that basis. A plan or an opinion stays secondhand; say whose it is |
+| **Read** | The basis names a file, page, or command nobody in the session opened | Open it now. When it doesn't say what the fact says, record the correction the way `/fathom:record` treats a contradiction |
+| **Earned** | A count, summary, or comparison of other facts is marked `observed` | Record it again as `inferred`, naming the facts it rests on in `confirm-by` |
+| **Consistent** | Two facts the view states can't both hold: an absolute claim beside its own exception, two values for one thing | Stop and name both keys, both values, and both bases, then record the resolution. Don't pick one quietly |
+| **Confirmed** | A fact the bottom line rests on, a breaking change, or a command the reader will run is only secondhand or inferred | Confirm it against the primary source (the tag, the release page, the code, a reproduction) and record it again with that basis, as `measured` when you reproduced it |
+
+Spend the effort where the reader acts. Every fact the view states gets the
+first four checks; the ones the bottom line rests on, and the ones a reader will
+act on, get all five. A check that changes a fact changes the record, so render
+from the version it produces.
+
+When a fact can't be confirmed before the view is due, keep it and say so in the
+audience's terms ("likely", "per the plan"), never in the confident voice of the
+facts around it.
+
+## 4. Judge who may read each fact
 
 One record feeds every audience, so each render is a chance to send a fact to
 readers its source never had. Recording stays fast by leaving most facts
@@ -75,7 +99,7 @@ When a fact the bottom line rests on is narrower than the view, say so and let
 the user choose: leave it out, or narrow the view's visibility (and so where it
 can go). A secret value never appears in any view; name the secret instead.
 
-## 4. Write the view as HTML
+## 5. Write the view as HTML
 
 HTML is the form `fathom check` reads; PDF and published pages print from it.
 
@@ -104,7 +128,7 @@ HTML is the form `fathom check` reads; PDF and published pages print from it.
   formatting a number are presentation. A difference, a sum, or a rate is a new
   fact: record it as a `measure` first.
 
-## 5. Check
+## 6. Check
 
 ```bash
 fathom check <view.html> --record <dir>
@@ -112,20 +136,20 @@ fathom check <view.html> --record <dir>
 
 | Exit | Meaning | Do |
 | --- | --- | --- |
-| 0 | Every number sits in a citation, every citation resolves as of the stamped version, every cited number is held by a cited row, and no cited fact is narrower than the stamped visibility | Publish (step 6) |
+| 0 | Every number sits in a citation, every citation resolves as of the stamped version, every cited number is held by a cited row, and no cited fact is narrower than the stamped visibility | Publish (step 7) |
 | 3 | Each failure is printed with its text | Fix the view, or record the missing fact and render again. Never publish a failing view |
 | 1 | No record, or no such version | Report it |
 
 The check works on facts, not wording: two renders of the same inputs can phrase
 things differently and both pass.
 
-## 6. Publish in the format
+## 7. Publish in the format
 
 **Check the destination first.** Who can read where the view is going has to be
 within its stamped visibility. A shared artifact, a PDF sent to a list, and a
 chat post each reach whoever holds the link or the channel. When the
 destination is wider, stop and ask: render again at the wider visibility (step
-3 leaves out what can't go), or publish somewhere narrower.
+4 leaves out what can't go), or publish somewhere narrower.
 
 | Format | How |
 | --- | --- |
@@ -139,8 +163,10 @@ A view published once and later edited by hand has drifted from the record.
 When the user brings back an edited view, compare it with what was rendered, and
 offer to record any new fact it carries and render again.
 
-## 7. Report
+## 8. Report
 
 Name each view with its brief, version, visibility, and format, linked to where
 it lives, the `fathom check` result line, what each view leaves out with the
-view that carries it, and each fact left out for its visibility.
+view that carries it, and each fact left out for its visibility. Then the vet:
+how many cited facts were confirmed against a primary source, how many stay
+secondhand or inferred, and each contradiction found with how it was resolved.

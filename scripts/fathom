@@ -402,6 +402,11 @@ def check(view_path, record):
     print(f"{view_path}: {verdict}; v{version}, {parser.meta.get('fathom-audience', '?')}, {visibility or '?'} visibility, "
           f"{len(parser.cited)} facts cited ({unclassified} unclassified), {checked} numbers checked, "
           f"{literal} marked literal, {len(failures)} failures")
+    # Passing says the view matches the record, not that the record is right, so
+    # say how the cited facts are known: the reader of this line judges the rest.
+    known = {c: sorted(k for k in parser.cited & set(facts) if facts[k].get("certainty") == c) for c in CERTAINTY}
+    tally = ", ".join(f"{len(known[c])} {c}" for c in CERTAINTY)
+    print(f"  cited facts are known as: {tally}" + (f"; inferred: {', '.join(known['inferred'])}" if known["inferred"] else ""))
     return 3 if failures else 0
 
 
