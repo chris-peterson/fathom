@@ -1,7 +1,7 @@
 ---
 name: record
 description: This skill should be used when the user is gathering the facts of a piece of work (an incident, an investigation, a migration, a test campaign) and wants them kept in one place every document can be rendered from, such as "/fathom:record", "start a record for this incident", "add this to the record", "here's the audit log export", "what does this change in the timeline", "keep track of what we know", or when the user pastes a blob of evidence (a log export, a chat transcript, an API dump) into a session that already has a fathom record. Extracts what's new, records each fact with its certainty and basis, and surfaces contradictions instead of silently revising.
-argument-hint: "[<record dir>] [--kind <kind>] | <evidence to add>"
+argument-hint: "[<record name or dir>] [--kind <kind>] | <evidence to add>"
 ---
 
 # Record
@@ -18,16 +18,21 @@ Run the CLI as `${CLAUDE_PLUGIN_ROOT}/scripts/fathom`, written `fathom` below;
 ## 1. Find or start the record
 
 A record is a directory holding `fathom.yml` (its kind and title) and
-`record.yml` (its rows). Look for one the session already uses. Otherwise ask
-where it should live once, then start it:
+`record.yml` (its rows). Look for one the session already uses
+(`ls .fathom/` at the repo root). Otherwise start one under a short kebab-case
+name for the work, without asking where it should live:
 
 ```bash
-fathom init <dir> --kind <kind> --title "<title>"
+fathom init <name> --kind <kind> --title "<title>"
 ```
 
-Put it beside the work: a branch of the repo the change lives in, or a folder
-the team already shares. The record is the durable artifact; views are
-disposable.
+A bare name puts the record in `.fathom/<name>/` at the root of the repo the
+session is in, and every other subcommand finds it by the same name. `init`
+makes git ignore `.fathom/`, so the record never lands in a commit by accident.
+Pass a path instead only when the user names a place, such as a folder the team
+already shares. To commit a record the team should keep, the user adds it on
+purpose (`git add -f .fathom/<name>`). The record is the durable artifact; views
+are disposable.
 
 Pick the kind from the work: `fathom kind --name <kind>` shows a kind's fact
 types, briefs, and sources. `base` fits any work; `incident` extends it for
@@ -75,7 +80,9 @@ against the kind's schema, and appends them all or none. Each row:
 | `observed` | Records from the work itself | the record: the audit event, the log line, the job |
 | `inferred` | Timing or a pattern | the reasoning; put what would confirm it in the claim's `confirm-by` |
 
-Certainty says how the fact is known, not how plausible it is.
+Certainty says how the fact is known, not how plausible it is. Where evidence
+comes from, and the order to trust it in, is in
+`${CLAUDE_PLUGIN_ROOT}/guides/verification.md`.
 
 Rules the schema enforces, so a refusal explains itself: keys are kebab-case and
 keep their type; timestamps carry a UTC offset; text fields hold Markdown inline

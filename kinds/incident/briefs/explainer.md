@@ -7,7 +7,7 @@ tone: plain words; things named by their role ("the old proxy", "another app dep
 verbosity: one screen per scene; three scenes
 leaves-out: identifiers, the timeline, the certainty table (the analysis view has them)
 links-to: [analysis]
-framing: [blameless]
+framing: [blameless, eli]
 ---
 
 # Incident explainer

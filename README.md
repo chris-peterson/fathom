@@ -1,6 +1,6 @@
 # fathom
 
-**fathom:** one record of facts, rendered for each reader.
+**fathom** the facts once; render them for every reader.
 
 A Claude Code plugin in the [bridge.ai](https://chris-peterson.github.io/claude-marketplace/)
 suite. It keeps the facts of a piece of work (an incident, an investigation) in

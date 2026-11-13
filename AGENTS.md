@@ -14,7 +14,10 @@ SPEC.md              requirements (EARS), the source of record for behavior
 docs/principles.md   why documents are views, and the patterns this follows
 docs/extending.md    how a team adds or extends a kind
 scripts/fathom       the CLI: record, kinds, briefs, and the view check
-skills/              fathom:record, fathom:render, fathom:pdf
+skills/              fathom:record, fathom:render, fathom:pdf, fathom:proof, fathom:wtf
+guides/              long-form methods the skills name by path (verification)
+skills/render/styles/ named view styles, one stylesheet each (how-to)
+kinds/base/framing/  writing styles (eli, ste): a brief's framing and a /fathom:wtf mode
 kinds/               the kinds fathom ships: base, and incident and release as examples
 ```
 
@@ -41,7 +44,8 @@ Verify a change by exercising the CLI against a scratch record outside the repo:
   append-only YAML list of rows. A row's `seq` is the record's version; reading
   as of version N takes each key's latest row with `seq <= N` and drops
   retractions. `add` validates every row against the kind's fact types and
-  writes all of them or none.
+  writes all of them or none. A bare kebab-case name in place of a directory
+  resolves to `.fathom/<name>/` at the repo root, which `init` makes git ignore.
 - **Kinds.** Resolution through `FATHOM_KINDS`, `extends`, and brief stacking is
   in `docs/extending.md`. `fathom brief` prints the resolved stack plus every
   framing rule it names, and that output is what `fathom:render` follows.

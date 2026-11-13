@@ -28,6 +28,16 @@ sourcing, is in [Principles](/principles).
 4. **Share.** `/fathom:pdf` prints a view for readers outside Claude, on one page
    by default.
 
+Two commands work on a single reply. When you doubt what Claude just said,
+`/fathom:proof` rules it true or false with the evidence and how well it is
+known, using the same method `/fathom:render` vets a view's facts with. When the
+session keeps a record, the ruling goes into it.
+
+When you can't read what Claude just said, `/fathom:wtf` rewrites it as the same facts in a shape you can read:
+shorter (`wall`), clearer (`wat`), from the ground up (`eli`), or in Simplified
+Technical English (`ste`). `eli` and `ste` are the framing rules briefs use, so
+"explain it plainly" means one thing in a reply and in a view.
+
 ## Kinds of work
 
 A **kind** says what facts a record can hold and who reads about it. fathom
@@ -41,13 +51,18 @@ The skills drive `scripts/fathom`, which you can also run yourself. It needs
 [uv](https://docs.astral.sh/uv/).
 
 ```bash
-scripts/fathom init <dir> --kind incident --title "<title>"
-scripts/fathom kind <dir>              # fact types, briefs, sources
-echo '<row as YAML>' | scripts/fathom add <dir>
-scripts/fathom show <dir>
-scripts/fathom brief --record <dir> status
-scripts/fathom check <view.html> --record <dir>
+scripts/fathom init <name> --kind incident --title "<title>"
+scripts/fathom kind <name>              # fact types, briefs, sources
+echo '<row as YAML>' | scripts/fathom add <name>
+scripts/fathom show <name>
+scripts/fathom brief --record <name> status
+scripts/fathom check <view.html> --record <name>
 ```
+
+A bare name like `checkout-outage` is a record in `.fathom/checkout-outage/` at
+the root of the repo you're in. `init` makes git ignore `.fathom/`, so records
+stay out of commits until you add one on purpose (`git add -f`). Pass a path
+instead to keep a record anywhere else.
 
 `scripts/fathom --help` documents every subcommand and exit code. The behavior
 each one promises is in the [Requirements](/spec).

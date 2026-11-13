@@ -89,7 +89,7 @@ kinds/acme-incident/
   briefs/analysis.md    extends: true; adds the team's dashboards to the evidence section
 ```
 
-Its records start with `fathom init <dir> --kind acme-incident`. They get
+Its records start with `fathom init <name> --kind acme-incident`. They get
 `incident`'s fact types, the `blameless` framing rule, and the `status` and
 `explainer` briefs unchanged; the team's postmortem replaces the bundled one,
 and its analysis adds to the bundled one.

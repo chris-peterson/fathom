@@ -1,0 +1,156 @@
+/* The `how-to` style: an illustrated step-by-step article. A summary box up top, the procedure in
+   parts or methods, one card per step with a large numbered badge and a bold lead sentence, then
+   tips, warnings, and Q&A. The `how-to` brief writes for it. The level pill, the sidebar of what
+   you'll need, and methods as tabs follow reelyActive's tutorial style guide
+   (https://github.com/reelyactive/web-style-guide, MIT), restated here without Bootstrap.
+
+   Inline this file in the view's <style>, and how-to.js in a <script> at the end of <body> when the
+   view has methods. Fonts, in <head>:
+     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Merriweather:wght@700&family=Source+Sans+3:wght@400;700&display=swap">
+
+   Every number it shows (step, part, method) comes from a CSS counter, so none is visible text for
+   `fathom check` to count.
+
+   Markup it styles:
+     <header><span class="level">Beginner</span><h1>How to …</h1><p class="lede">…</p></header>
+     <aside class="summary"><h2>Things you should know</h2><ul>…</ul></aside>   the bottom line
+     <div class="layout">                                                       optional: sidebar on wide screens
+       <aside class="needs"><h2>Things you'll need</h2><ul>…</ul></aside>       access, tools, versions
+       <main>
+         <section class="part"><h2>…</h2><ol class="steps">…</ol></section>     do every part, in order
+         <div class="methods">                                                  pick one: tabs with how-to.js
+           <section class="method"><h2>…</h2><ol class="steps">…</ol></section>
+         </div>
+         a step:  <li><p><b>The step in one sentence.</b> The detail.</p>
+                      <aside class="warning">…</aside>                          before what it warns about
+                      <figure>img, svg, or pre</figure>
+                      <aside class="tip">…</aside></li>
+         <section class="tips"><h2>Tips</h2><ul>…</ul></section>
+         <section class="warnings"><h2>Warnings</h2><ul>…</ul></section>
+         <section class="qa"><h2>Questions</h2><dl><dt>…</dt><dd>…</dd></dl></section>
+       </main>
+     </div>
+     <footer>Rendered from …</footer> */
+
+:root {
+  --bg: #fbfaf6; --card: #ffffff; --fg: #23261f; --muted: #646a5c; --rule: #e2e1d8;
+  --accent: #2f7d4f; --accent-fg: #ffffff; --accent-tint: #e9f3ec;
+  --tip: #2e6da4; --tip-tint: #e8f0f8; --warn: #a3561a; --warn-tint: #fbefe3;
+  --body: "Source Sans 3", "Helvetica Neue", Arial, sans-serif;
+  --display: "Merriweather", Georgia, serif;
+  --mono: "SF Mono", Menlo, monospace;
+  --radius: 12px; --badge: 2.75rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171915; --card: #20231e; --fg: #e8e9e3; --muted: #a4a99b; --rule: #33372f;
+    --accent: #5fb880; --accent-fg: #10140f; --accent-tint: #1f3326;
+    --tip: #7fb2e5; --tip-tint: #1c2836; --warn: #e6a066; --warn-tint: #36281c;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #171915; --card: #20231e; --fg: #e8e9e3; --muted: #a4a99b; --rule: #33372f;
+  --accent: #5fb880; --accent-fg: #10140f; --accent-tint: #1f3326;
+  --tip: #7fb2e5; --tip-tint: #1c2836; --warn: #e6a066; --warn-tint: #36281c;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0 auto; max-width: 46rem; padding: 2rem 16px 3rem; background: var(--bg); color: var(--fg);
+  font: 1.0625rem/1.6 var(--body); counter-reset: part method; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.25; }
+h1 { font-size: 2rem; margin: 0 0 0.5rem; }
+h2 { font-size: 1.35rem; margin: 0 0 0.75rem; }
+.lede { color: var(--muted); font-size: 1.125rem; margin: 0; }
+header { margin-bottom: 1.5rem; }
+.level { display: inline-block; margin-bottom: 0.5rem; padding: 0.15rem 0.6rem; border-radius: 999px;
+  background: var(--accent-tint); color: var(--accent); font: 700 0.75rem var(--body); letter-spacing: 0.08em; text-transform: uppercase; }
+a { color: var(--accent); text-underline-offset: 2px; }
+code, pre { font-family: var(--mono); font-size: 0.875em; }
+pre { overflow-x: auto; background: var(--bg); border: 1px solid var(--rule); border-radius: 8px; padding: 0.75rem; }
+img, svg { max-width: 100%; height: auto; display: block; }
+
+/* The bottom line and the supplies: boxes before the procedure. */
+.summary, .needs { border-radius: var(--radius); padding: 1rem 1.25rem; margin: 0 0 1.5rem; }
+.summary { background: var(--accent-tint); border-left: 6px solid var(--accent); }
+.needs { background: var(--card); border: 1px solid var(--rule); }
+.summary h2, .needs h2 { font: 700 0.8rem var(--body); letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
+.summary ul, .needs ul { margin: 0; padding-left: 1.25rem; }
+.needs ul { list-style: none; padding: 0; }
+.needs li::before { content: "✓"; color: var(--accent); font-weight: 700; margin-right: 0.5rem; }
+
+/* Wide screens: what you'll need sits in a sticky sidebar beside the steps. */
+@media (min-width: 64rem) {
+  body:has(.layout) { max-width: 66rem; }
+  .layout { display: grid; grid-template-columns: 16rem minmax(0, 1fr); gap: 2rem; align-items: start; }
+  .layout > .needs { position: sticky; top: 1rem; }
+  .layout > main > :first-child { margin-top: 0; }
+}
+
+/* Methods: one tab per method once how-to.js runs; stacked without it, and on paper. */
+.methods { margin: 2.5rem 0 0; }
+.methods > [role="tablist"] { display: flex; flex-wrap: wrap; gap: 0.25rem; border-bottom: 2px solid var(--rule); margin-bottom: 1.25rem; }
+.methods [role="tab"] { font: 700 0.95rem var(--body); color: var(--muted); background: none; border: 0;
+  border-bottom: 3px solid transparent; margin-bottom: -2px; padding: 0.5rem 0.9rem; cursor: pointer; }
+.methods [role="tab"][aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.methods [role="tab"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.methods > .method[hidden] { display: none; }
+.methods > [role="tablist"] ~ .method { margin-top: 0; }
+.methods > [role="tablist"] ~ .method > h2 { display: none; }
+
+/* Parts (do them in order) and methods (pick one): an eyebrow above the heading. */
+.part, .method { margin: 2.5rem 0 0; }
+.part { counter-increment: part; }
+.method { counter-increment: method; }
+.part > h2::before, .method > h2::before { display: block; margin-bottom: 0.25rem;
+  font: 700 0.8rem var(--body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+.part > h2::before { content: "Part " counter(part); }
+.method > h2::before { content: "Method " counter(method); }
+
+/* Steps: one card each, a round numbered badge, the lead sentence in bold. */
+.steps { list-style: none; padding: 0; margin: 0; counter-reset: step; }
+.steps > li { counter-increment: step; position: relative; background: var(--card); border: 1px solid var(--rule);
+  border-radius: var(--radius); padding: 1.25rem 1.25rem 1.25rem calc(var(--badge) + 2rem); margin: 0 0 1rem; }
+.steps > li::before { content: counter(step); position: absolute; left: 1.25rem; top: 1.1rem;
+  width: var(--badge); height: var(--badge); border-radius: 50%; display: grid; place-items: center;
+  background: var(--accent); color: var(--accent-fg); font: 700 1.35rem var(--body); }
+.steps > li > p:first-child > b:first-child, .steps > li > p:first-child > strong:first-child { font-size: 1.1rem; }
+.steps > li > p { margin: 0 0 0.5rem; }
+.steps figure { margin: 0.75rem 0 0; border-radius: 8px; overflow: hidden; border: 1px solid var(--rule); }
+.steps figure > pre { margin: 0; border: 0; border-radius: 0; }
+.steps figcaption { color: var(--muted); font-size: 0.875rem; padding: 0.4rem 0.75rem; }
+
+/* Tips and warnings: inline on a step, or collected at the end. */
+aside.tip, aside.warning { border-radius: 8px; padding: 0.6rem 0.85rem; margin: 0.75rem 0 0; font-size: 0.95rem; }
+aside.tip { background: var(--tip-tint); }
+aside.warning { background: var(--warn-tint); }
+aside.tip::before { content: "Tip"; color: var(--tip); }
+aside.warning::before { content: "Warning"; color: var(--warn); }
+aside.tip::before, aside.warning::before { font-weight: 700; margin-right: 0.5rem; }
+.tips, .warnings, .qa { margin: 2.5rem 0 0; }
+.tips ul, .warnings ul { list-style: none; padding: 0; margin: 0; }
+.tips li, .warnings li { border-radius: 8px; padding: 0.6rem 0.85rem; margin: 0 0 0.5rem; }
+.tips li { background: var(--tip-tint); border-left: 4px solid var(--tip); }
+.warnings li { background: var(--warn-tint); border-left: 4px solid var(--warn); }
+
+/* Questions and answers. */
+.qa dt { font-weight: 700; margin: 1rem 0 0.25rem; }
+.qa dt::before { content: "Q "; color: var(--accent); }
+.qa dd { margin: 0; padding-left: 1.4rem; color: var(--fg); }
+
+footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--rule); color: var(--muted); font-size: 0.875rem; }
+
+/* Phone width: the badge sits above the step instead of beside it. */
+@media (max-width: 480px) {
+  .steps > li { padding: 1rem; }
+  .steps > li::before { position: static; margin-bottom: 0.5rem; --badge: 2.25rem; width: 2.25rem; height: 2.25rem; font-size: 1.1rem; }
+}
+
+@media print {
+  body { max-width: none; padding: 0; background: #fff; font-size: 10.5pt; }
+  .steps > li { break-inside: avoid; }
+  .methods > [role="tablist"] { display: none; }
+  .methods > .method[hidden] { display: block; }
+  .methods > [role="tablist"] ~ .method > h2 { display: block; }
+  .methods > .method + .method { margin-top: 2.5rem; }
+  .layout { display: block; }
+}

@@ -4,4 +4,6 @@
 - [fathom:record](/skills/record)
 - [fathom:render](/skills/render)
 - [fathom:pdf](/skills/pdf)
+- [fathom:proof](/skills/proof)
+- [fathom:wtf](/skills/wtf)
 - [Requirements](/spec)

@@ -29,14 +29,18 @@ suite:
     - ["/fathom:record", "Turn evidence into facts in the record"]
     - ["/fathom:render", "Write a view of the record for one reader"]
     - ["/fathom:pdf", "Print a view for readers outside Claude"]
+    - ["/fathom:proof", "Rule a claim true or false, with the evidence"]
+    - ["/fathom:wtf", "Rewrite the last reply so you can read it"]
   # >>> shipyard:describe — generated from source by `shipyard gen-describe`; do not edit >>>
   describe:
     skills:
       pdf: This skill should be used when the user wants a PDF to share with people who can't open the original, such as "/fathom:pdf", "make a PDF of this view", "export this artifact to PDF", "turn this into a one-pager", "I need to send this to someone without Claude", or "print this page".
+      proof: Rule a claim true or false, with sources and how each is known.
       record: This skill should be used when the user is gathering the facts of a piece of work (an incident, an investigation, a migration, a test campaign) and wants them kept in one place every document can be rendered from, such as "/fathom:record", "start a record for this incident", "add this to the record", "here's the audit log export", "what does this change in the timeline", "keep track of what we know", or when the user pastes a blob of evidence (a log export, a chat transcript, an API dump) into a session that already has a fathom record.
       render: This skill should be used when the user wants a document made from a fathom record, for one reader, such as "/fathom:render", "write this up for managers", "render the analysis", "make the RCA page", "an explainer for the product team", "a postmortem draft", "render all the views", or "re-render as of the latest version".
+      wtf: Redo what you just said so the user can read it, and quietly stop doing whatever made it unreadable.
   # <<< shipyard:describe <<<
 
 docs:
   code_languages: [bash, yaml, json]
-  mermaid: false
+  mermaid: true

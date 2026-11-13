@@ -113,6 +113,15 @@ row, so evidence from every source merges into one zone.
 If any row in one addition is invalid, then the system shall record none of
 them.
 
+#### `RECORD-12`
+Where a record is named by a bare name rather than a path, the system shall keep
+it in `.fathom/<name>/` at the root of the git repository holding the working
+directory, or in `./.fathom/<name>/` outside a repository.
+
+#### `RECORD-13`
+When the system creates the `.fathom/` directory, it shall make git ignore what
+it holds, so a record is committed only when someone adds it on purpose.
+
 ### `KIND`
 Kinds of work
 
@@ -317,6 +326,50 @@ open.
 Where a Markdown page is published on a site that renders its inline HTML, the
 system shall accept the page itself as the view, stamped and cited in inline
 HTML and checked as written, so no copy outside the check reaches readers.
+
+### `PROOF`
+Ruling on a claim
+
+#### `PROOF-01`
+When the user asks whether a claim holds, the system shall rule it true, false,
+partly true, or undetermined, and state the certainty of the ruling separately
+from the verdict.
+
+#### `PROOF-02`
+The system shall cite, for each claim it rules on, the primary datum the ruling
+rests on (a line of source, a test's output, a quoted passage), not a source's
+summary of it.
+
+#### `PROOF-03`
+Where the session keeps a record and the claim is about the work, the system
+shall record the ruling, and record a false fact's correction as a new row of
+its key.
+
+#### `PROOF-04`
+The system shall use one method to record a fact's certainty, vet a fact before
+rendering it, and rule on a claim, so the three mean the same thing by
+`measured`, `observed`, and `inferred`.
+
+### `REWRITE`
+Rewriting a reply the reader couldn't read
+
+#### `REWRITE-01`
+When the user asks for a rewrite of the last reply, the system shall replace it
+with the same facts in the modes named (`wat` unintelligible, `wall` too long,
+`eli` too advanced, `ste` too complex), or in the modes it diagnoses when none
+is named.
+
+#### `REWRITE-02`
+The system shall keep every fact the reply stated. Where a length the user asked
+for can't be met otherwise, it shall name each fact it dropped.
+
+#### `REWRITE-03`
+Where the unreadable text was written to files, the system shall edit those
+files in place rather than summarizing them in the reply.
+
+#### `REWRITE-04`
+The system shall define each writing style once, so a brief's framing rule and a
+rewrite mode of the same name apply the same rules.
 
 ### `DRIFT`
 Views edited by hand

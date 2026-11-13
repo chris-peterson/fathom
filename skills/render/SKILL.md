@@ -1,7 +1,7 @@
 ---
 name: render
 description: This skill should be used when the user wants a document made from a fathom record, for one reader, such as "/fathom:render", "write this up for managers", "render the analysis", "make the RCA page", "an explainer for the product team", "a postmortem draft", "render all the views", or "re-render as of the latest version". Renders a view from the record as of a version, an audience brief, a format, and a style; cites every fact, stamps the version and audience, and runs fathom check before the view is published.
-argument-hint: "<brief> [as of v<N>] [<format>] [<style>] [<record dir>]"
+argument-hint: "<brief> [as of v<N>] [<format>] [<style>] [<record name or dir>]"
 ---
 
 # Render
@@ -22,8 +22,19 @@ Run the CLI as `${CLAUDE_PLUGIN_ROOT}/scripts/fathom`, written `fathom` below;
 | Version | the latest | `fathom version <dir>` |
 | Brief | the one the user names; ask with the kind's list when unclear | `fathom kind <dir>`, then `fathom brief --record <dir> <name>` |
 | Format | an HTML page | the user's words: page, artifact, PDF, one-pager |
-| Style | the house look of where it's going | the user's words, or `fancy` for PDF |
+| Style | the house look of where it's going | the user's words; a named style below, or `fancy` for PDF |
 | Visibility | the brief's `visibility` | where the user says the view goes: a public page, a channel the whole organization reads, the team's own space |
+
+Named styles live in `${CLAUDE_PLUGIN_ROOT}/skills/render/styles/`: a
+stylesheet each, whose header comment gives the markup it styles, and a script
+when the style has one. Inline them in the view and write the body in that
+markup. A style is only the look; how plainly a view reads is its brief's
+framing (`eli`, `ste`), so a plain-words page in another look is the same brief
+in another style.
+
+| Style | Asked for as | Fits |
+| --- | --- | --- |
+| `how-to` | "how-to", "step by step", "like a wikiHow article", "a runbook" | A procedure the reader follows, which the `how-to` brief writes. Its level pill says who it's for: "Beginner" under `eli` framing. Step, part, and method numbers are CSS counters, so they need no `data-literal` |
 
 When several views are wanted, render every one from the same version unless
 the user asks otherwise, so they agree by construction.
@@ -46,26 +57,12 @@ missing.
 ## 3. Vet each fact the view will state
 
 `fathom check` proves a view says what the record says, not that the record is
-right. Recording stays fast on purpose, so a fact can arrive secondhand, with a
-basis nobody opened, or at a certainty it didn't earn. The render is the last
-stop before a reader acts on it, so vet the facts here:
-
-| Check | It fails when | Do |
-| --- | --- | --- |
-| **Firsthand** | The basis is another document about the work (an earlier view, a post, a summary, a slide) rather than the work's own record | Open what that document drew on, and record the fact again with that basis. A plan or an opinion stays secondhand; say whose it is |
-| **Read** | The basis names a file, page, or command nobody in the session opened | Open it now. When it doesn't say what the fact says, record the correction the way `/fathom:record` treats a contradiction |
-| **Earned** | A count, summary, or comparison of other facts is marked `observed` | Record it again as `inferred`, naming the facts it rests on in `confirm-by` |
-| **Consistent** | Two facts the view states can't both hold: an absolute claim beside its own exception, two values for one thing | Stop and name both keys, both values, and both bases, then record the resolution. Don't pick one quietly |
-| **Confirmed** | A fact the bottom line rests on, a breaking change, or a command the reader will run is only secondhand or inferred | Confirm it against the primary source (the tag, the release page, the code, a reproduction) and record it again with that basis, as `measured` when you reproduced it |
-
-Spend the effort where the reader acts. Every fact the view states gets the
-first four checks; the ones the bottom line rests on, and the ones a reader will
-act on, get all five. A check that changes a fact changes the record, so render
-from the version it produces.
-
-When a fact can't be confirmed before the view is due, keep it and say so in the
-audience's terms ("likely", "per the plan"), never in the confident voice of the
-facts around it.
+right. Recording stays fast on purpose, so the render is the last stop before a
+reader acts on a fact. Run the five checks in "Vetting a fact" in
+`${CLAUDE_PLUGIN_ROOT}/guides/verification.md` (firsthand, read, earned,
+consistent, confirmed) on every fact the view will state, and record what they
+change before rendering. The guide is the same method `/fathom:proof` rules
+with.
 
 ## 4. Judge who may read each fact
 
@@ -153,7 +150,7 @@ destination is wider, stop and ask: render again at the wider visibility (step
 
 | Format | How |
 | --- | --- |
-| A page in the repo or on disk | Save the checked HTML beside the record, named `<brief>-v<N>.html` |
+| A page on disk | Save the checked HTML in the record's directory, named `<brief>-v<N>.html`; under `.fathom/` it stays out of commits with the record |
 | A shared web page | Publish the checked HTML with the `Artifact` tool |
 | PDF | `/fathom:pdf` with the view and `--record`; it re-checks before printing |
 | A Markdown page on a site that renders its inline HTML (docsify, for one) | Write the page itself as the view, and check the `.md`: the stamps go in as `<meta>` tags, each fact in an HTML element carrying its `data-fact` (a block, or a `<span>` inside a heading), so the published file is the checked one. A plain `#` line holding a number fails the check; cite it with a `<span>`, and strip the tags wherever the site reads the heading as text |
