@@ -1,7 +1,7 @@
 ---
 name: pdf
 description: This skill should be used when the user wants a PDF to share with people who can't open the original, such as "/fathom:pdf", "make a PDF of this view", "export this artifact to PDF", "turn this into a one-pager", "I need to send this to someone without Claude", or "print this page". Prints a fathom view, a claude.ai artifact, a local HTML page, or what was just said in chat to a PDF that fits one US Letter page by default, condensing or paginating when it doesn't fit. For reading, merging, splitting, or filling existing PDFs, use a general PDF tool instead.
-argument-hint: "[a4] [landscape] [pages: <n>] [full] [fancy] [<view | artifact url | file | what to print>]"
+argument-hint: "[what to print]"
 ---
 
 # PDF

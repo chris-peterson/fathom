@@ -28,7 +28,7 @@ sourcing, is in [Principles](/principles).
 4. **Share.** `/fathom:pdf` prints a view for readers outside Claude, on one page
    by default.
 
-Two commands work on a single reply. When you doubt what Claude just said,
+Three commands work on a single reply. When you doubt what Claude just said,
 `/fathom:proof` rules it true or false with the evidence and how well it is
 known, using the same method `/fathom:render` vets a view's facts with. When the
 session keeps a record, the ruling goes into it.
@@ -37,6 +37,11 @@ When you can't read what Claude just said, `/fathom:wtf` rewrites it as the same
 shorter (`wall`), clearer (`wat`), from the ground up (`eli`), or in Simplified
 Technical English (`ste`). `eli` and `ste` are the framing rules briefs use, so
 "explain it plainly" means one thing in a reply and in a view.
+
+To share what Claude just said, `/fathom:slack` rewrites it for a channel reader
+and copies it in Slack's markup; ask for `transcript` to share the exchange
+itself. Like a view, a post is judged against who can read the channel: what
+its source's readers couldn't see is withheld, and a secret never goes out.
 
 ## Kinds of work
 

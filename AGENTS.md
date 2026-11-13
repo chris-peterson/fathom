@@ -14,7 +14,7 @@ SPEC.md              requirements (EARS), the source of record for behavior
 docs/principles.md   why documents are views, and the patterns this follows
 docs/extending.md    how a team adds or extends a kind
 scripts/fathom       the CLI: record, kinds, briefs, and the view check
-skills/              fathom:record, fathom:render, fathom:pdf, fathom:proof, fathom:wtf
+skills/              fathom:record, fathom:render, fathom:pdf, fathom:proof, fathom:wtf, fathom:slack
 guides/              long-form methods the skills name by path (verification)
 skills/render/styles/ named view styles, one stylesheet each (how-to)
 kinds/base/framing/  writing styles (eli, ste): a brief's framing and a /fathom:wtf mode
@@ -23,10 +23,12 @@ kinds/               the kinds fathom ships: base, and incident and release as e
 
 ## Running it
 
-Both scripts are self-contained [uv](https://docs.astral.sh/uv/) scripts: their
+Every script is a self-contained [uv](https://docs.astral.sh/uv/) script: its
 dependencies sit in the `# /// script` header, so they run directly with no
 install step. `skills/pdf/scripts/to-pdf.py` also needs Google Chrome installed,
-since it prints through Playwright's `chrome` channel.
+since it prints through Playwright's `chrome` channel, and
+`skills/slack/scripts/to-slack.py` copies with `pbcopy` (`--no-copy` only
+prints).
 
 ```bash
 scripts/fathom --help                    # every subcommand and exit code

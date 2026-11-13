@@ -45,6 +45,9 @@ below its category's heading, so every requirement has a linkable anchor
 - **format**: the output medium: a web page, Markdown, a slide deck, a Word
   document, a chat post.
 - **style**: the visual treatment within a format.
+- **chat engine**: the chat product a chat post is written for, which sets the
+  post's markup, the link form its composer keeps on a paste, and what it can't
+  render. fathom supports one, Slack.
 - **citation**: the link from a rendered fact back to the fact key it came from.
 - **check**: the verification run over a rendered view before it is published.
 
@@ -370,6 +373,50 @@ files in place rather than summarizing them in the reply.
 #### `REWRITE-04`
 The system shall define each writing style once, so a brief's framing rule and a
 rewrite mode of the same name apply the same rules.
+
+### `CHAT`
+Sharing what the session said in a chat channel
+
+#### `CHAT-01`
+When the user asks to share something in a chat channel, the system shall take
+the previous reply as the source, unless the user names another source:
+something said earlier, pasted text, or the session's transcript.
+
+#### `CHAT-02`
+If the user asks for the session's transcript and the range is not evident or
+spans a long scrollback, then the system shall ask which range to share before
+writing it.
+
+#### `CHAT-03`
+Where the source is a transcript, the system shall keep every turn and its
+wording and change only the markup, quoting each prompt without the terminal's
+prompt marker.
+
+#### `CHAT-04`
+If the source's text was cut off, then the system shall mark each gap rather
+than reconstruct the missing text.
+
+#### `CHAT-05`
+Before a post is copied, the system shall judge each item it carries against
+the destination's visibility as a view's facts are judged (`ACCESS-04` to
+`ACCESS-06`), withhold any item narrower than the destination or any path on the
+user's machine, never carry a secret value, and name each withheld item to the
+user.
+
+#### `CHAT-06`
+If a draft holds a line the chat engine can't render (in Slack, a table row
+outside a code block), a value shaped like a secret, or a path under a home
+directory, then the system shall refuse to copy it and name each line.
+
+#### `CHAT-07`
+When a post is ready, the system shall copy it to the clipboard in the chat
+engine's markup and show it as the exact text copied.
+
+#### `CHAT-08`
+The system shall write every link in the form the chat engine's composer keeps
+on a paste, and rewrite any link written in a form only the engine's API
+accepts before copying (in Slack, `[text](url)` is kept, and `<url|text>` or
+`<url>` is rewritten).
 
 ### `DRIFT`
 Views edited by hand

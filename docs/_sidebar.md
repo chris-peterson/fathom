@@ -6,4 +6,5 @@
 - [fathom:pdf](/skills/pdf)
 - [fathom:proof](/skills/proof)
 - [fathom:wtf](/skills/wtf)
+- [fathom:slack](/skills/slack)
 - [Requirements](/spec)

@@ -31,6 +31,7 @@ suite:
     - ["/fathom:pdf", "Print a view for readers outside Claude"]
     - ["/fathom:proof", "Rule a claim true or false, with the evidence"]
     - ["/fathom:wtf", "Rewrite the last reply so you can read it"]
+    - ["/fathom:slack", "Share the last reply or the transcript in Slack"]
   # >>> shipyard:describe — generated from source by `shipyard gen-describe`; do not edit >>>
   describe:
     skills:
@@ -38,6 +39,7 @@ suite:
       proof: Rule a claim true or false, with sources and how each is known.
       record: This skill should be used when the user is gathering the facts of a piece of work (an incident, an investigation, a migration, a test campaign) and wants them kept in one place every document can be rendered from, such as "/fathom:record", "start a record for this incident", "add this to the record", "here's the audit log export", "what does this change in the timeline", "keep track of what we know", or when the user pastes a blob of evidence (a log export, a chat transcript, an API dump) into a session that already has a fathom record.
       render: This skill should be used when the user wants a document made from a fathom record, for one reader, such as "/fathom:render", "write this up for managers", "render the analysis", "make the RCA page", "an explainer for the product team", "a postmortem draft", "render all the views", or "re-render as of the latest version".
+      slack: This skill should be used when the user wants something from the session shared in Slack, such as "/fathom:slack", "copy to Slack", "post this in Slack", "write this up for the channel", "copy the transcript for Slack", "summarize this for the team", or "explain this in Slack for a non-technical audience".
       wtf: Redo what you just said so the user can read it, and quietly stop doing whatever made it unreadable.
   # <<< shipyard:describe <<<
 
