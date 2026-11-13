@@ -1,6 +1,6 @@
 {
   "name": "fathom",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Keeps the facts of a piece of work in one versioned record and renders each reader's document from it, with every figure traced to a fact.",
   "author": {
     "name": "chris-peterson"
