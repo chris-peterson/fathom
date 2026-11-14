@@ -17,8 +17,9 @@ Run the CLI as `${CLAUDE_PLUGIN_ROOT}/scripts/fathom`, written `fathom` below;
 
 ## 1. Find or start the record
 
-A record is a directory holding `fathom.yml` (its kind and title) and
-`record.yml` (its rows). Look for one the session already uses
+A record is a directory holding `record.jsonl` (its rows, the first naming its
+kind and title) and `views/` (what was rendered from it). Look for one the
+session already uses
 (`ls .fathom/` at the repo root). Otherwise start one under a short kebab-case
 name for the work, without asking where it should live:
 

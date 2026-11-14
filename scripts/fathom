@@ -5,10 +5,16 @@
 # ///
 """fathom: one record of facts, rendered for each reader.
 
-A record is a directory holding fathom.yml (its kind and title) and
-record.yml (its rows, a YAML list, append-only). The record's version is the seq of its
-last row; reading as of version N gives, for each key, its latest row with
-seq <= N.
+A record is a directory holding record.jsonl: its rows, one JSON object per
+line, append-only. Row 0 holds the record's kind and title; a retitle adds a row
+like it. Every other row is a fact. The record's version is the seq of its last
+row; reading as of version N gives, for each key, its latest row with seq <= N.
+
+Views live apart from the facts, in the record's views/ directory: each saved
+view at views/<name>/v<N>.html, and views/renders.jsonl logging every save with
+the inputs it came from (record version, brief and its digest, style and its
+digest, format, visibility) and every publish with where it went. Deleting
+views/ loses no fact.
 
 Kinds are looked up by name in each directory of FATHOM_KINDS
 (os.pathsep-separated), then in the plugin's kinds/. A kind is a directory with
@@ -35,7 +41,10 @@ Exit codes:
   3  check found failures; each is printed with its text
 """
 import argparse
+import hashlib
+import json
 import os
+import shutil
 import re
 import subprocess
 import sys
@@ -61,6 +70,31 @@ def fail(message):
 
 def dump(data):
     return yaml.safe_dump(data, sort_keys=False, allow_unicode=True, width=100)
+
+
+def now():
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def read_jsonl(path):
+    rows = []
+    for n, line in enumerate(path.read_text().splitlines(), 1):
+        if line.strip():
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError as e:
+                fail(f"{path}:{n} is not a JSON row: {e}")
+    return rows
+
+
+def append_jsonl(path, rows):
+    """One write per call, so an addition lands whole."""
+    with path.open("a") as out:
+        out.write("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+
+
+def digest(text):
+    return "sha256:" + hashlib.sha256(text.encode()).hexdigest()[:12]
 
 
 def as_text(value):
@@ -163,18 +197,28 @@ def record_dir(arg):
 class Record:
     def __init__(self, directory):
         self.dir = record_dir(str(directory))
-        meta = self.dir / "fathom.yml"
-        if not meta.is_file():
-            fail(f"no record at {self.dir} (missing fathom.yml); start one with `fathom init`")
-        self.meta = yaml.safe_load(meta.read_text()) or {}
-        self.path = self.dir / "record.yml"
-        self.rows = (yaml.safe_load(self.path.read_text()) if self.path.exists() else None) or []
-        self.chain = kind_chain(self.meta.get("kind") or fail(f"{meta} names no kind"))
+        self.path = self.dir / "record.jsonl"
+        if not self.path.is_file():
+            fail(f"no record at {self.dir} (missing record.jsonl); start one with `fathom init`")
+        self.all = read_jsonl(self.path)
+        if not self.all or self.all[0].get("seq") != 0 or not (self.all[0].get("record") or {}).get("kind"):
+            fail(f"{self.path} does not open with row 0 naming the record's kind")
+        self.rows = [r for r in self.all if "record" not in r]
+        self.views = self.dir / "views"
+        self.chain = kind_chain(self.meta()["kind"])
         self.types = fact_types(self.chain)
 
     @property
     def version(self):
-        return self.rows[-1]["seq"] if self.rows else 0
+        return self.all[-1]["seq"]
+
+    def meta(self, version=None):
+        """The record's kind and title as of a version: row 0, then each retitle."""
+        merged = {}
+        for row in self.all:
+            if "record" in row and (version is None or row["seq"] <= version):
+                merged.update(row["record"])
+        return merged
 
     def as_of(self, version=None):
         version = self.version if version is None else version
@@ -185,6 +229,19 @@ class Record:
             if row["seq"] <= version:
                 latest[row["key"]] = row
         return {k: r for k, r in latest.items() if not r.get("retracted")}
+
+    def stamp(self, rows):
+        """Number rows from the next version, append them, and return them."""
+        seq, at, out = self.version, now(), []
+        for row in rows:
+            seq += 1
+            out.append({"seq": seq, **{k: v for k, v in row.items() if k != "recorded"}, "recorded": at}
+                       if "record" in row else {"seq": seq, "key": row["key"], "type": row["type"], "recorded": at,
+                                                **{k: row[k] for k in ("certainty", "basis", "fields", "retracted", "visibility") if k in row}})
+        append_jsonl(self.path, out)
+        self.all += out
+        self.rows += [r for r in out if "record" not in r]
+        return out
 
     def validate(self, row, pending):
         errors = []
@@ -197,7 +254,7 @@ class Record:
         ftype = row.get("type")
         spec = self.types.get(ftype)
         if spec is None:
-            errors.append(f"type {ftype!r} is not in kind {self.meta['kind']!r} (has: {', '.join(sorted(self.types))})")
+            errors.append(f"type {ftype!r} is not in kind {self.meta()['kind']!r} (has: {', '.join(sorted(self.types))})")
         earlier = next((r for r in reversed(pending + self.rows) if r["key"] == key), None)
         if earlier and earlier["type"] != ftype:
             errors.append(f"key {key!r} is a {earlier['type']}; a key keeps its type")
@@ -235,22 +292,13 @@ class Record:
                 for e in errors:
                     print(f"{key}: {e}", file=sys.stderr)
             fail(f"recorded nothing: {len(problems)} of {len(rows)} rows are invalid")
-        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        seq = self.version
-        with self.path.open("a") as out:
-            for row in pending:
-                seq += 1
-                stored = {"seq": seq, "key": row["key"], "type": row["type"], "recorded": now}
-                for k in ("certainty", "basis", "fields", "retracted", "visibility"):
-                    if k in row:
-                        stored[k] = row[k]
-                earlier = next((r for r in reversed(self.rows) if r["key"] == row["key"]), None)
-                if "visibility" not in stored and not row.get("retracted") and earlier and earlier.get("visibility"):
-                    stored["visibility"] = earlier["visibility"]
-                out.write(dump([stored]))
-                self.rows.append(stored)
-                note = " (retracted)" if row.get("retracted") else f" ({stored['visibility']})" if stored.get("visibility") else ""
-                print(f"v{seq} {stored['key']}{note}")
+        for row in pending:
+            earlier = next((r for r in reversed(self.rows) if r["key"] == row["key"]), None)
+            if "visibility" not in row and not row.get("retracted") and earlier and earlier.get("visibility"):
+                row["visibility"] = earlier["visibility"]
+        for stored in self.stamp(pending):
+            note = " (retracted)" if stored.get("retracted") else f" ({stored['visibility']})" if stored.get("visibility") else ""
+            print(f"v{stored['seq']} {stored['key']}{note}")
 
 
 def field_errors(fields, spec):
@@ -380,9 +428,14 @@ def row_runs(row):
     return runs
 
 
-def check(view_path, record):
+def parse_view(view_path):
     parser = ViewParser()
     parser.feed(Path(view_path).read_text())
+    return parser
+
+
+def check(view_path, record):
+    parser = parse_view(view_path)
     failures = []
     stamp = parser.meta.get("fathom-version")
     if not stamp or not stamp.isdigit():
@@ -434,15 +487,14 @@ def check(view_path, record):
 
 def cmd_init(args):
     d = record_dir(args.dir)
-    if (d / "fathom.yml").exists():
+    if (d / "record.jsonl").exists():
         fail(f"{d} already holds a record")
     kind_chain(args.kind)
     d.mkdir(parents=True, exist_ok=True)
     root = records_root()
     if d.resolve().parent == root.resolve() and not (root / ".gitignore").exists():
         (root / ".gitignore").write_text("# fathom records stay out of commits until added on purpose (git add -f).\n*\n")
-    (d / "fathom.yml").write_text(yaml.safe_dump({"kind": args.kind, "title": args.title or d.name}, sort_keys=False))
-    (d / "record.yml").touch()
+    append_jsonl(d / "record.jsonl", [{"seq": 0, "record": {"kind": args.kind, "title": args.title or d.name}, "recorded": now()}])
     print(f"{d}: new {args.kind} record, v0")
 
 
@@ -466,11 +518,12 @@ def cmd_show(args):
     facts = record.as_of(args.as_of)
     if args.type:
         facts = {k: r for k, r in facts.items() if r["type"] == args.type}
+    version = record.version if args.as_of is None else args.as_of
+    meta = record.meta(version)
     if args.full:
-        print(dump({"version": record.version if args.as_of is None else args.as_of, "kind": record.meta["kind"],
-                    "title": record.meta.get("title"), "facts": list(facts.values())}), end="")
+        print(dump({"version": version, "kind": meta["kind"], "title": meta.get("title"), "facts": list(facts.values())}), end="")
         return
-    print(f"{record.meta.get('title')} ({record.meta['kind']}) as of v{record.version if args.as_of is None else args.as_of}: {len(facts)} facts")
+    print(f"{meta.get('title')} ({meta['kind']}) as of v{version}: {len(facts)} facts")
     for r in sorted(facts.values(), key=lambda r: (r["type"], r["key"])):
         print(f"  {r['key']}  [{r['type']}, {r['certainty']}, {r.get('visibility', 'unclassified')}, v{r['seq']}]  {yaml.safe_dump(r['fields'], default_flow_style=True, width=10**6, allow_unicode=True).strip()}")
 
@@ -500,6 +553,13 @@ def cmd_version(args):
     print(Record(args.dir).version)
 
 
+def cmd_retitle(args):
+    record = Record(args.dir)
+    if record.meta().get("title") == args.title:
+        fail(f"the record is already titled {args.title!r}")
+    print(f"v{record.stamp([{'record': {'title': args.title}}])[0]['seq']} title: {args.title}")
+
+
 def cmd_kind(args):
     chain = kind_chain(args.name) if args.name else Record(args.dir).chain
     print("kind: " + " -> ".join(f"{k} ({d})" for k, d, _ in chain))
@@ -514,11 +574,11 @@ def cmd_kind(args):
     print("sources: " + (", ".join(sources) or "none"))
 
 
-def cmd_brief(args):
-    chain = Record(args.dir).chain if args.dir else kind_chain(args.kind)
-    i, kind, path = find_in_chain(chain, "briefs", args.name)
+def resolved_brief(chain, name):
+    """The brief, every brief it extends, and every framing rule they name, as one text."""
+    i, kind, path = find_in_chain(chain, "briefs", name)
     if not path:
-        fail(f"no brief {args.name!r}; this kind has: {', '.join(sorted(listed(chain, 'briefs'))) or 'none'}")
+        fail(f"no brief {name!r}; this kind has: {', '.join(sorted(listed(chain, 'briefs'))) or 'none'}")
     meta, _ = front_matter(path)
     missing = [k for k in ("audience", "visibility", "needs", "bottom-line", "tone", "leaves-out") if not meta.get(k)]
     if missing:
@@ -526,26 +586,144 @@ def cmd_brief(args):
     if meta["visibility"] not in VISIBILITY:
         fail(f"{path} names visibility {meta['visibility']!r}; use one of {', '.join(VISIBILITY)}")
     framing, current = list(meta.get("framing") or []), meta
-    print(f"# brief: {args.name} ({kind}) {path}\n")
-    print(path.read_text())
+    parts = [f"# brief: {name} ({kind}) {path}\n\n{path.read_text()}"]
     while current.get("extends") is True:
-        i, kind, path = find_in_chain(chain, "briefs", args.name, i + 1)
+        i, kind, path = find_in_chain(chain, "briefs", name, i + 1)
         if not path:
-            fail(f"brief {args.name!r} extends a brief of the same name, which no base kind has")
+            fail(f"brief {name!r} extends a brief of the same name, which no base kind has")
         current, body = front_matter(path)
         framing += [r for r in current.get("framing") or [] if r not in framing]
-        print(f"\n# extended brief: {args.name} ({kind}) {path}\n")
-        print(body)
+        parts.append(f"\n# extended brief: {name} ({kind}) {path}\n\n{body}")
     for rule in framing:
         _, rkind, rpath = find_in_chain(chain, "framing", rule)
         if not rpath:
-            fail(f"brief {args.name!r} names framing rule {rule!r}, which this kind lacks")
-        print(f"\n# framing: {rule} ({rkind}) {rpath}\n")
-        print(rpath.read_text())
+            fail(f"brief {name!r} names framing rule {rule!r}, which this kind lacks")
+        parts.append(f"\n# framing: {rule} ({rkind}) {rpath}\n\n{rpath.read_text()}")
+    return "\n".join(parts)
+
+
+def brief_digest(chain, name):
+    """Paths vary by machine; the digest covers only the text a render follows."""
+    text = resolved_brief(chain, name)
+    return digest(re.sub(r"^# (brief|extended brief|framing): .*$", "", text, flags=re.M))
+
+
+def style_digest(style):
+    files = sorted((PLUGIN_ROOT / "skills/render/styles").glob(f"{style}.*")) if style else []
+    return digest("".join(f.read_text() for f in files)) if files else None
+
+
+def cmd_brief(args):
+    chain = Record(args.dir).chain if args.dir else kind_chain(args.kind)
+    print(resolved_brief(chain, args.name))
 
 
 def cmd_check(args):
     return check(args.view, Record(args.record))
+
+
+def renders(record):
+    log = record.views / "renders.jsonl"
+    return read_jsonl(log) if log.exists() else []
+
+
+def cmd_save(args):
+    record = Record(args.record)
+    src = Path(args.view)
+    if not src.is_file():
+        fail(f"no view at {src}")
+    status = check(src, record)
+    if status:
+        print(f"fathom: saved nothing: {src} fails its check", file=sys.stderr)
+        return status
+    stamps = parse_view(src).meta
+    version, brief = int(stamps["fathom-version"]), stamps["fathom-audience"]
+    style = args.style or stamps.get("fathom-style") or None
+    name = args.name or brief
+    if not KEY.match(name):
+        fail(f"view name {name!r} must be lowercase letters, digits, and hyphens")
+    folder = record.views / name
+    folder.mkdir(parents=True, exist_ok=True)
+    content, n = src.read_bytes(), 1
+    while True:
+        dest = folder / f"v{version}{'' if n == 1 else f'-{n}'}{src.suffix}"
+        if not dest.exists() or dest.read_bytes() == content:
+            break
+        n += 1
+    if dest.exists():
+        print(f"{dest.relative_to(record.dir)}: unchanged; already saved")
+        return 0
+    shutil.copyfile(src, dest)
+    row = {"n": len(renders(record)) + 1, "event": "rendered", "at": now(), "view": name,
+           "file": str(dest.relative_to(record.dir)), "version": version, "brief": brief,
+           "brief-digest": brief_digest(record.chain, brief), "style": style, "style-digest": style_digest(style),
+           "format": {".md": "markdown"}.get(src.suffix, src.suffix.lstrip(".")), "visibility": stamps["fathom-visibility"]}
+    append_jsonl(record.views / "renders.jsonl", [row])
+    print(f"{row['file']}: saved, render {row['n']}")
+    return 0
+
+
+def latest_render(log, name):
+    found = [r for r in log if r["event"] == "rendered" and r["view"] == name]
+    if not found:
+        fail(f"no saved view named {name!r}; `fathom views` lists them")
+    return found[-1]
+
+
+def cmd_publish(args):
+    record = Record(args.record)
+    log = renders(record)
+    render = latest_render(log, args.view)
+    if args.file:
+        render = next((r for r in log if r["event"] == "rendered" and r["file"] == args.file), None) or \
+            fail(f"no saved render at {args.file}")
+    row = {"n": len(log) + 1, "event": "published", "at": now(), "view": render["view"], "file": render["file"],
+           "render": render["n"], "to": args.to}
+    append_jsonl(record.views / "renders.jsonl", [row])
+    print(f"{render['file']}: published to {args.to}")
+
+
+def staleness(record, render):
+    """What moved since the render: cited facts, the brief, the style."""
+    reasons = []
+    path = record.dir / render["file"]
+    if path.exists():
+        then, latest = record.as_of(render["version"]), record.as_of()
+        moved = sorted(k for k in parse_view(path).cited if (then.get(k) or {}).get("seq") != (latest.get(k) or {}).get("seq"))
+        if moved:
+            reasons.append(f"{len(moved)} cited facts changed since v{render['version']}: {', '.join(moved)}")
+    else:
+        reasons.append(f"{render['file']} is missing")
+    if find_in_chain(record.chain, "briefs", render["brief"])[2] is None:
+        reasons.append(f"brief {render['brief']!r} no longer exists")
+    elif brief_digest(record.chain, render["brief"]) != render["brief-digest"]:
+        reasons.append(f"brief {render['brief']!r} changed")
+    if render.get("style-digest") and style_digest(render["style"]) != render["style-digest"]:
+        reasons.append(f"style {render['style']!r} changed")
+    return reasons
+
+
+def cmd_views(args):
+    record = Record(args.record)
+    log = renders(record)
+    names = list(dict.fromkeys(r["view"] for r in log if r["event"] == "rendered"))
+    if not names:
+        print(f"no saved views; record at v{record.version}")
+        return 0
+    stale = 0
+    for name in names:
+        r = latest_render(log, name)
+        published = [p["to"] for p in log if p["event"] == "published" and p["render"] == r["n"]]
+        reasons = staleness(record, r)
+        stale += bool(reasons)
+        print(f"{name}  {r['file']}  [v{r['version']}, {r['brief']}, {r.get('style') or 'no named style'}, {r['visibility']}]"
+              f"  {'stale' if reasons else 'current'}")
+        for p in published:
+            print(f"  published to {p}")
+        for why in reasons:
+            print(f"  {why}")
+    print(f"{len(names)} views, {stale} stale; record at v{record.version}")
+    return 0
 
 
 def build_parser():
@@ -584,6 +762,11 @@ def build_parser():
     s.add_argument("dir")
     s.set_defaults(func=cmd_version)
 
+    s = sub.add_parser("retitle", help="give the record a new title, as a new version")
+    s.add_argument("dir")
+    s.add_argument("title")
+    s.set_defaults(func=cmd_retitle)
+
     s = sub.add_parser("kind", help="a kind's fact types, briefs, framing rules, and sources")
     g = s.add_mutually_exclusive_group(required=True)
     g.add_argument("dir", nargs="?")
@@ -601,6 +784,24 @@ def build_parser():
     s.add_argument("view")
     s.add_argument("--record", required=True)
     s.set_defaults(func=cmd_check)
+
+    s = sub.add_parser("save", help="check a view, keep it in the record's views/, and log its inputs")
+    s.add_argument("view")
+    s.add_argument("--record", required=True)
+    s.add_argument("--name", help="the view's name; defaults to its brief")
+    s.add_argument("--style", help="the named style; defaults to the fathom-style stamp")
+    s.set_defaults(func=cmd_save)
+
+    s = sub.add_parser("publish", help="log where a saved view was published")
+    s.add_argument("view", help="the view's name")
+    s.add_argument("--record", required=True)
+    s.add_argument("--to", required=True, help="where it went: a URL, a channel, a list")
+    s.add_argument("--file", help="a saved render other than the view's latest, as views/<name>/v<N>.html")
+    s.set_defaults(func=cmd_publish)
+
+    s = sub.add_parser("views", help="each saved view's latest render, and what has moved since")
+    s.add_argument("record")
+    s.set_defaults(func=cmd_views)
     return p
 
 

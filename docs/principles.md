@@ -92,7 +92,7 @@ Each input varies on its own:
 |---|---|
 | Record version | as of now; as of when the first analysis went out |
 | Audience | engineers, managers and planners, customers, the next on-call |
-| Format | a web page, Markdown, a slide deck, a Word document, a chat post |
+| Format | a web page, Markdown, a slide deck, a Word document, a chat post, an email |
 | Style | the house design, a brand, plain text for an email |
 
 Verbosity and depth belong to the audience: a manager's brief and an engineer's

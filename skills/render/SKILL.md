@@ -103,7 +103,9 @@ HTML is the form `fathom check` reads; PDF and published pages print from it.
 - **Stamp it.** In `<head>`:
   `<meta name="fathom-version" content="<N>">`,
   `<meta name="fathom-audience" content="<brief name>">`, and
-  `<meta name="fathom-visibility" content="<visibility>">`. Show the stamp to
+  `<meta name="fathom-visibility" content="<visibility>">`, plus
+  `<meta name="fathom-style" content="<style>">` when the view uses a named
+  style. Show the stamp to
   readers too, in a footer or meta line marked `data-literal` (its version
   number is not a fact): "Rendered from `<record title>` v`<N>` for `<audience>`".
 - **Cite every fact.** Wrap each rendered fact in an element carrying
@@ -133,12 +135,24 @@ fathom check <view.html> --record <dir>
 
 | Exit | Meaning | Do |
 | --- | --- | --- |
-| 0 | Every number sits in a citation, every citation resolves as of the stamped version, every cited number is held by a cited row, and no cited fact is narrower than the stamped visibility | Publish (step 7) |
+| 0 | Every number sits in a citation, every citation resolves as of the stamped version, every cited number is held by a cited row, and no cited fact is narrower than the stamped visibility | Save it, then publish (step 7) |
 | 3 | Each failure is printed with its text | Fix the view, or record the missing fact and render again. Never publish a failing view |
 | 1 | No record, or no such version | Report it |
 
 The check works on facts, not wording: two renders of the same inputs can phrase
 things differently and both pass.
+
+Write the view in the scratchpad, then save it into the record:
+
+```bash
+fathom save <view.html> --record <dir> [--name <view name>]
+```
+
+`save` checks the view again, copies it to `views/<name>/v<N>.html` in the
+record, and logs the inputs it came from, so a later `fathom views <dir>` can
+say what has moved since. The name defaults to the brief; give one when a brief
+renders more than one view of the record (`--name upgrade-how-to`). A re-render
+at the same version is kept beside the earlier one, never over it.
 
 ## 7. Publish in the format
 
@@ -150,11 +164,23 @@ destination is wider, stop and ask: render again at the wider visibility (step
 
 | Format | How |
 | --- | --- |
-| A page on disk | Save the checked HTML in the record's directory, named `<brief>-v<N>.html`; under `.fathom/` it stays out of commits with the record |
-| A shared web page | Publish the checked HTML with the `Artifact` tool |
-| PDF | `/fathom:pdf` with the view and `--record`; it re-checks before printing |
-| A Markdown page on a site that renders its inline HTML (docsify, for one) | Write the page itself as the view, and check the `.md`: the stamps go in as `<meta>` tags, each fact in an HTML element carrying its `data-fact` (a block, or a `<span>` inside a heading), so the published file is the checked one. A plain `#` line holding a number fails the check; cite it with a `<span>`, and strip the tags wherever the site reads the heading as text |
+| A page on disk | The saved file in `views/`; under `.fathom/` it stays out of commits with the record |
+| A shared web page | Publish the saved HTML with the `Artifact` tool |
+| PDF | `/fathom:pdf` with the saved view and `--record`; it re-checks before printing |
+| A Markdown page on a site that renders its inline HTML (docsify, for one) | Write the page itself as the view, and check the `.md`: the stamps go in as `<meta>` tags, each fact in an HTML element carrying its `data-fact` (a block, or a `<span>` inside a heading), so the published file is the checked one. A plain `#` line holding a number fails the check; cite it with a `<span>`, and strip the tags wherever the site reads the heading as text. Save the `.md` too |
 | Other Markdown, slides, a chat post, a word-processor document | Convert from the checked HTML, keeping every fact as the view states it, and say in the report that the converted copy is outside the check |
+
+Once it is out, log where it went, so drift is measured against what readers
+got:
+
+```bash
+fathom publish <view name> --record <dir> --to <url, channel, or list>
+```
+
+To find what needs rendering again, `fathom views <dir>` lists each view's
+latest render and what has moved since: the cited facts that changed, and
+whether its brief or style did. Render a stale view again rather than editing
+it.
 
 A view published once and later edited by hand has drifted from the record.
 When the user brings back an edited view, compare it with what was rendered, and

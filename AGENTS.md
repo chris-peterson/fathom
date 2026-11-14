@@ -42,8 +42,9 @@ Verify a change by exercising the CLI against a scratch record outside the repo:
 
 ## How the pieces fit
 
-- **Record.** A directory with `fathom.yml` (kind, title) and `record.yml`, an
-  append-only YAML list of rows. A row's `seq` is the record's version; reading
+- **Record.** A directory with `record.jsonl`, an append-only file of rows, one
+  JSON object per line; row 0 holds the kind and title, and a retitle adds a
+  row like it. A row's `seq` is the record's version; reading
   as of version N takes each key's latest row with `seq <= N` and drops
   retractions. `add` validates every row against the kind's fact types and
   writes all of them or none. A bare kebab-case name in place of a directory
@@ -57,8 +58,11 @@ Verify a change by exercising the CLI against a scratch record outside the repo:
   and non-fact numbers in `data-literal`. `fathom check` parses that HTML and
   fails any visible number whose digits none of its cited rows hold as of the
   stamped version, and any cited row whose `visibility` is narrower than the
-  view's. `to-pdf.py` refuses a stamped view unless given `--record`, and runs
-  the check before printing.
+  view's. `fathom save` checks a view, copies it to the record's
+  `views/<name>/v<N>.html`, and logs its inputs (brief and style digests
+  included) to `views/renders.jsonl`; `publish` logs where it went, and
+  `views` reports what has moved since each render. `to-pdf.py` refuses a
+  stamped view unless given `--record`, and runs the check before printing.
 - **Plugin root.** Skills call the CLI as `${CLAUDE_PLUGIN_ROOT}/scripts/fathom`;
   run from a checkout, the script falls back to its own parent directory to find
   `kinds/`.

@@ -62,7 +62,13 @@ echo '<row as YAML>' | scripts/fathom add <name>
 scripts/fathom show <name>
 scripts/fathom brief --record <name> status
 scripts/fathom check <view.html> --record <name>
+scripts/fathom save <view.html> --record <name>
+scripts/fathom views <name>             # each view, and what has moved since it was rendered
 ```
+
+A record keeps its facts in `record.jsonl` and what was rendered from them in
+`views/`. Each saved view is logged with the record version, brief, and style
+it came from, so `views` can tell you which documents are stale and why.
 
 A bare name like `checkout-outage` is a record in `.fathom/checkout-outage/` at
 the root of the repo you're in. `init` makes git ignore `.fathom/`, so records

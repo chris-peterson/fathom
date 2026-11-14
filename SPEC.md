@@ -43,7 +43,10 @@ below its category's heading, so every requirement has a linkable anchor
   else, set by the view's brief and stated first
   ([BLUF](https://en.wikipedia.org/wiki/BLUF_%28communication%29)).
 - **format**: the output medium: a web page, Markdown, a slide deck, a Word
-  document, a chat post.
+  document, a chat post, an email.
+- **message**: a format written to be pasted into a composer rather than opened:
+  a chat post or an email. A message keeps no stamps, so it is checked as the
+  view it was converted from.
 - **style**: the visual treatment within a format.
 - **chat engine**: the chat product a chat post is written for, which sets the
   post's markup, the link form its composer keeps on a paste, and what it can't
@@ -125,6 +128,14 @@ directory, or in `./.fathom/<name>/` outside a repository.
 When the system creates the `.fathom/` directory, it shall make git ignore what
 it holds, so a record is committed only when someone adds it on purpose.
 
+#### `RECORD-14`
+The system shall keep a record's rows in one append-only file, one row per
+line, whose first row, version 0, holds the record's kind and title.
+
+#### `RECORD-15`
+When a record is retitled, the system shall add a row holding the new title, so
+a read as of an earlier version keeps the earlier title.
+
 ### `KIND`
 Kinds of work
 
@@ -187,6 +198,34 @@ basis is firsthand and was read, that its certainty matches how it is known, and
 that it agrees with the other facts the view states. It shall confirm against a
 primary source each fact the bottom line, a breaking change, or a reader's next
 action rests on, and record what the vetting changes before rendering.
+
+#### `VIEW-09`
+The system shall keep saved views apart from the record's rows, in the record's
+`views/` directory, so deleting every view loses no fact.
+
+#### `VIEW-10`
+When a view is saved, the system shall log the render with every input it came
+from: the record version, the brief and a digest of the brief as resolved with
+its framing rules, the style and a digest of its files, the format, and the
+visibility.
+
+#### `VIEW-11`
+If a view is saved before its check passes, then the system shall refuse to
+save it.
+
+#### `VIEW-12`
+When a view is saved at a version that already has a different render of it,
+the system shall keep both rather than replace the earlier one.
+
+#### `VIEW-13`
+When a view is published, the system shall log where it went, when, and which
+saved render it was, so the published text is what drift is measured against
+(`DRIFT-01`).
+
+#### `VIEW-14`
+When asked for a record's views, the system shall report each view's latest
+render and why it is stale: each cited fact that has changed since its version,
+and whether its brief or style has changed since it was saved.
 
 ### `COMM`
 Communication style: how a view reads
@@ -330,6 +369,36 @@ Where a Markdown page is published on a site that renders its inline HTML, the
 system shall accept the page itself as the view, stamped and cited in inline
 HTML and checked as written, so no copy outside the check reaches readers.
 
+#### `FORMAT-07`
+When a view is wanted as a message, the system shall convert it from the
+checked HTML view, carrying each fact as the view states it and no fact the view
+doesn't.
+
+#### `FORMAT-08`
+If a stamped view is converted to a message before its check passes, then the
+system shall refuse to convert it.
+
+#### `FORMAT-09`
+The system shall convert to each message format with one converter, whether the
+source is a view or what the session said (`CHAT-01`), so a message is held to
+the same rules whichever it came from.
+
+#### `FORMAT-10`
+When a message is converted from a view, the system shall end it with the view's
+record version and audience, and with a link to the full view where one is
+published somewhere the message's readers can open, so a reader can trace what
+it states.
+
+#### `FORMAT-11`
+When a view is converted to an email, the system shall take the subject from the
+view's bottom line, write the body in the style named (rich text a mail client
+renders, or plain text), show the subject, and copy the body to the clipboard in
+that style.
+
+#### `FORMAT-12`
+If a message holds a value shaped like a secret or a path under a home
+directory, then the system shall refuse to copy it and name each line.
+
 ### `PROOF`
 Ruling on a claim
 
@@ -375,7 +444,8 @@ The system shall define each writing style once, so a brief's framing rule and a
 rewrite mode of the same name apply the same rules.
 
 ### `CHAT`
-Sharing what the session said in a chat channel
+Chat posts: `CHAT-01` to `CHAT-04` cover a post made from what the session said;
+the rest cover every chat post, one converted from a view included (`FORMAT-09`)
 
 #### `CHAT-01`
 When the user asks to share something in a chat channel, the system shall take
@@ -405,8 +475,9 @@ user.
 
 #### `CHAT-06`
 If a draft holds a line the chat engine can't render (in Slack, a table row
-outside a code block), a value shaped like a secret, or a path under a home
-directory, then the system shall refuse to copy it and name each line.
+outside a code block), then the system shall refuse to copy it and name each
+line, as it refuses a secret or a home-directory path in any message
+(`FORMAT-12`).
 
 #### `CHAT-07`
 When a post is ready, the system shall copy it to the clipboard in the chat
