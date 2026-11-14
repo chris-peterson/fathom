@@ -6,6 +6,10 @@ repository: https://github.com/chris-peterson/fathom
 icon: .claude-plugin/icon.svg
 license: MIT
 keywords: [claude, documents, incidents, postmortem, record, views, citations]
+# /fathom:pdf designs each one-pager with the frontend-design skill.
+dependencies:
+  - name: frontend-design
+    marketplace: claude-plugins-official
 
 validate:
   accept:
