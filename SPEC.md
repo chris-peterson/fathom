@@ -399,6 +399,13 @@ that style.
 If a message holds a value shaped like a secret or a path under a home
 directory, then the system shall refuse to copy it and name each line.
 
+#### `FORMAT-13`
+When the system writes a one-pager to print, it shall lay the page out around
+the shape its content already has, and review the rendered page's design
+(balanced columns, no label or code line wrapping, no large empty region, a
+clear hierarchy) as well as its fit, rendering again until the design passes
+before the page is delivered.
+
 ### `PROOF`
 Ruling on a claim
 

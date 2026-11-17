@@ -19,7 +19,7 @@ name something else.
 
 | Source | Get HTML to print |
 | --- | --- |
-| A fathom view (an HTML file stamped `<meta name="fathom-version">`) | The view file, printed with `--record <its record dir>` |
+| A fathom view (an HTML file stamped `<meta name="fathom-version">`) | The path `fathom save` reported, printed with `--record <its record dir>`. A re-save at the same record version writes `views/<name>/v<N>-2.html` beside the original, so printing `v<N>.html` by its name prints the stale layout |
 | An artifact published in this session | The local `.html` file it was published from |
 | A claude.ai artifact URL | `Artifact` `action: "read"`; it saves the full HTML locally and names the path. Copy it into the scratchpad as `artifact.html`, the file you print and pass to `--links-from`. For a multi-file artifact, fetch the files the page references with `paths` into the same folder. A read of someone else's artifact returns a summary rather than HTML: say it can't be printed faithfully and offer a one-pager written from the summary |
 | A Claude Docs link | Not this skill: export it with the Docs connector's `export` to PDF, which keeps the doc's own layout |
@@ -75,7 +75,8 @@ for a summary-only source.
 view into a shorter one makes a document from a document, which is how two
 copies of a fact start to drift. Render a new view with `/fathom:render`, from
 the same record version, with a brief whose verbosity is one page (the kind's
-`status` brief, or one the user names), then print that. Everything below about
+`status` brief, or one the user names), then print the path its `fathom save`
+reported. Everything below about
 writing the page still applies; the facts come from `fathom show`, and every one
 carries its citation.
 
@@ -91,6 +92,16 @@ below.** A request made while the page was being built ("link the pipelines",
 "show which tests changed", "keep it to the decision") still holds when the user
 asks for the PDF, even though it isn't in the arguments. Reread the conversation
 for them before condensing.
+
+**Design the page before filling the template.** Load
+`/frontend-design:frontend-design`, then plan the layout around the shape the
+content already has: a chain of steps reads as a row of linked cards, each
+carrying what ties it to the one before; a before and after reads as two
+columns; counts read as a proportion bar rather than a table. Give the page one
+memorable element and keep the rest quiet. The template is a kit of parts, not a
+layout. A page laid out only to fit comes out cramped: lopsided columns, labels
+wrapping in narrow table cells, nothing that tells the eye where to start. The
+rules below say what goes on the page; the plan says where it goes.
 
 - **Header**: when the page exists to deliver a verdict and the source states
   one, the H1 is that finding ("Upgrading the database broke no integration
@@ -221,6 +232,20 @@ Read the preview PNGs before reporting. A render can succeed and still be wrong:
 a chart that drew blank because its script failed, text clipped inside a
 fixed-height box, a dark panel that ignored the light theme. Fix it with `--css`
 or in the one-pager and rerender.
+
+A page that fits can still read badly. For a page written in step 4, judge the
+preview's design as well as its fit:
+
+- **Balanced columns**: no column cramped while another sits half empty.
+- **No labels wrapping in narrow table cells.** Widen the column, shorten the
+  label, or trade the table for another shape.
+- **No code lines wrapping.** `print.css` wraps every `pre`, so a command block
+  needs `white-space: pre !important` and a font size its longest line fits in.
+- **No large empty regions** inside the page; a short page ending early is fine.
+- **Clear hierarchy**: the H1, then the takeaway, then the body, read in that
+  order at a glance.
+
+Fix what fails and rerender until every one passes.
 
 Report in a few lines: each file as a link (`[name.pdf](file:///full/path)`)
 with its page count and scale, for a condensed page what it left out, for a

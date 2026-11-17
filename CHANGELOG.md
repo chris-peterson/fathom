@@ -13,6 +13,14 @@
 - **`fathom publish` logs where a view went**, so a hand-edited copy can later be compared with what readers got.
 - **`fathom retitle` changes a record's title as a new version**, so a view rendered earlier keeps the title it had.
 
+### Changed
+
+- **`/fathom:pdf` designs a one-pager instead of only fitting it.** It plans the layout around the shape the content already has (a chain as linked cards, a before and after as two columns, counts as a proportion bar) with the `frontend-design` skill, then reviews the preview for lopsided columns, labels or code lines that wrap, empty regions, and weak hierarchy, rendering again until the page reads well. fathom now depends on the `frontend-design` plugin from `claude-plugins-official`, which installs with it.
+
+### Fixed
+
+- **`/fathom:pdf` prints the view `fathom save` just wrote.** A re-save at the same record version lands beside the original as `v<N>-2.html`, and printing `v<N>.html` printed the earlier layout.
+
 ## 0.2.0
 
 ### Added

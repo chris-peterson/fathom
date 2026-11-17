@@ -18,5 +18,11 @@
   ],
   "homepage": "https://chris-peterson.github.io/fathom/#/",
   "icon": ".claude-plugin/icon.svg",
-  "documentationUrl": "https://chris-peterson.github.io/fathom/#/"
+  "documentationUrl": "https://chris-peterson.github.io/fathom/#/",
+  "dependencies": [
+    {
+      "name": "frontend-design",
+      "marketplace": "claude-plugins-official"
+    }
+  ]
 }
