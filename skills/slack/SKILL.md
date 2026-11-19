@@ -53,7 +53,7 @@ walkthrough and `summarize`), cut scope, not accuracy.
 
 A post is a write to the channel's readers, and something may only go where its
 source's readers could already see it: the "no write-down" rule
-(`docs/principles.md`, principle 11). A session holds things from sources with
+(`docs/principles.md`, principle 13). A session holds things from sources with
 narrower readers than any channel: a private repo, a DM, a cost report, a path
 on this machine.
 

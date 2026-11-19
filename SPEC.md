@@ -39,9 +39,12 @@ below its category's heading, so every requirement has a linkable anchor
 - **audience brief**: the instructions the renderer follows to turn the record
   into a view, written the way a skill is: who the view is for, what they need
   from it, its tone and verbosity, and what it leaves out.
+- **lede**: the record's bottom line up front
+  ([BLUF](https://en.wikipedia.org/wiki/BLUF_%28communication%29)): one
+  statement of where the work stands, kept as a fact and revised as facts
+  arrive. It says where the work stands, not what any reader should do about it.
 - **bottom line**: the one statement a view's reader needs if they read nothing
-  else, set by the view's brief and stated first
-  ([BLUF](https://en.wikipedia.org/wiki/BLUF_%28communication%29)).
+  else: the lede, reframed by the view's brief for its reader, and stated first.
 - **format**: the output medium: a web page, Markdown, a slide deck, a Word
   document, a chat post, an email.
 - **message**: a format written to be pasted into a composer rather than opened:
@@ -138,6 +141,42 @@ line, whose first row, version 0, holds the record's kind and title.
 When a record is retitled, the system shall add a row holding the new title, so
 a read as of an earlier version keeps the earlier title.
 
+### `LEDE`
+The record's bottom line
+
+#### `LEDE-01`
+The system shall keep at most one lede per record, as a fact of type `lede`
+under the key `lede`, and revise it by adding a row of that key, so the lede's
+history reads as how the understanding changed.
+
+#### `LEDE-02`
+If a lede row's certainty is not `inferred`, then the system shall refuse it,
+since a lede summarizes other facts.
+
+#### `LEDE-03`
+If a lede row names a key in `rests-on` that is not a current fact of the
+record, then the system shall refuse it.
+
+#### `LEDE-04`
+If a lede's statement holds a number that none of the facts it rests on holds,
+then the system shall refuse the row, so a view citing the lede can't let the
+lede's own numbers vouch for themselves.
+
+#### `LEDE-05`
+When facts are recorded, the system shall decide whether they move the
+record's bottom line, and when they do, record a new lede row and report the
+old statement, the new one, and why. The lede shall never change silently.
+
+#### `LEDE-06`
+When the record is shown, the system shall show the lede first, and mark it
+stale when a fact it rests on has changed or been retracted since the lede
+was written. A row that only reclassifies a fact's visibility changes neither
+the fact nor the lede.
+
+#### `LEDE-07`
+When asked for a record's views, the system shall report a view that opens with
+a stale lede as stale.
+
 ### `KIND`
 Kinds of work
 
@@ -233,8 +272,9 @@ and whether its brief or style has changed since it was saved.
 Communication style: how a view reads
 
 #### `COMM-01`
-The system shall open every view with the bottom line its brief defines, before
-any detail, citing the facts it rests on.
+The system shall open every view with its bottom line, before any detail: the
+record's lede reframed in the terms the view's brief defines, citing `lede`.
+Where the view's bottom line departs from the lede, the view shall say why.
 
 #### `COMM-02`
 Where a view leaves out facts another view of the same record carries, the

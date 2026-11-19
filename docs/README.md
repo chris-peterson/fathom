@@ -2,13 +2,35 @@
 
 **One record of facts, rendered for each reader.**
 
-Engineers write the analysis, someone else writes the explainer, and an hour
-later the two disagree on how many times the failure happened. fathom keeps the
-facts of a piece of work (an incident, an investigation, a migration) in one
-versioned record, and renders every document from it: an analysis for
-engineers, a status for managers, an explainer for everyone else. Each document
-is a view. It can be thrown away and rendered again, and every view rendered
-from the same version of the record agrees with every other.
+An outage needs a one-page status for leadership, a root-cause analysis for
+the engineers fixing it, a plain-words explainer for the teams it blocked, and
+a postmortem for the review meeting. Written by hand, those are four documents
+holding four copies of the facts, and within an hour they disagree on how many
+times the failure happened.
+
+fathom keeps one **record** per piece of work instead: a named place
+(`checkout-outage`) where the facts collect as the work happens, together with
+the record's current **lede**, the one statement of where the work stands.
+Every document is a **view** rendered from the record for one reader. A view
+can be thrown away and rendered again, and every view rendered from the same
+version of the record agrees with every other.
+
+## One record, many readers
+
+What changes between views is the reader, so each reader gets a brief that
+says how deep to go and what to leave out. The facts and the lede stay the
+same. The `incident` kind ships these:
+
+| View | For | Depth | Opens with the lede as |
+| --- | --- | --- | --- |
+| `status` | managers and planners | one page | the state of the work and the one decision it needs |
+| `explainer` | teams whose work was blocked | three scenes, in plain words | the limit, and what crossed it |
+| `postmortem` | the review meeting | the organization's template, filled | what failed, for how long, for whom, and whether the fix landed |
+| `analysis` | engineers choosing a fix | as long as the evidence needs | the defect and the trigger, named |
+
+Each view says what it leaves out and links to the view that carries it, so
+the one-pager's reader is one click from the evidence. A team adds a reader by
+writing a brief, not a document; see [Extending](/extending).
 
 Why it works this way, and the patterns it shares with MVC, React, and event
 sourcing, is in [Principles](/principles).
@@ -19,36 +41,25 @@ sourcing, is in [Principles](/principles).
    export, a chat transcript, an audit trail) into facts. Each fact carries how
    it is known (measured, observed, or inferred) and what it rests on. A fact
    that changes gets a new row; the old one stays.
-2. **Render.** `/fathom:render` writes a view for one reader, following that
-   reader's brief: what they need, the line it opens with, its tone, and what it
-   leaves out. Every fact in the view cites the record, and the view is stamped
-   with the version it came from.
-3. **Check.** Before a view is published, `fathom check` fails any number in it
+2. **Keep the lede.** As facts land, `/fathom:record` decides whether they move
+   the bottom line, and when they do, revises the lede out loud: the old
+   statement, the new one, and why. The lede names the facts it rests on, so
+   `fathom show` can tell you when one of them has changed under it.
+3. **Render.** `/fathom:render` writes a view for one reader, following that
+   reader's brief. It opens with the lede in that reader's terms, cites every
+   fact, and is stamped with the record version it came from.
+4. **Check.** Before a view is published, `fathom check` fails any number in it
    that the facts it cites don't hold.
-4. **Share.** `/fathom:pdf` prints a view for readers outside Claude, on one page
+5. **Share.** `/fathom:pdf` prints a view for readers outside Claude, on one page
    by default.
-
-Three commands work on a single reply. When you doubt what Claude just said,
-`/fathom:proof` rules it true or false with the evidence and how well it is
-known, using the same method `/fathom:render` vets a view's facts with. When the
-session keeps a record, the ruling goes into it.
-
-When you can't read what Claude just said, `/fathom:wtf` rewrites it as the same facts in a shape you can read:
-shorter (`wall`), clearer (`wat`), from the ground up (`eli`), or in Simplified
-Technical English (`ste`). `eli` and `ste` are the framing rules briefs use, so
-"explain it plainly" means one thing in a reply and in a view.
-
-To share what Claude just said, `/fathom:slack` rewrites it for a channel reader
-and copies it in Slack's markup; ask for `transcript` to share the exchange
-itself. Like a view, a post is judged against who can read the channel: what
-its source's readers couldn't see is withheld, and a secret never goes out.
 
 ## Kinds of work
 
 A **kind** says what facts a record can hold and who reads about it. fathom
-ships `base`, which fits any work, and `incident`, which adds causes, impact,
-and a blameless postmortem. A team adds its own kind for its own tools and
-templates; see [Extending](/extending).
+ships `base`, which fits any work, `incident`, which adds causes, impact, and a
+blameless postmortem, and `release`, for announcing what a release shipped. A
+team adds its own kind for its own tools and templates; see
+[Extending](/extending).
 
 ## The CLI
 
@@ -57,23 +68,39 @@ The skills drive `scripts/fathom`, which you can also run yourself. It needs
 
 ```bash
 scripts/fathom init <name> --kind incident --title "<title>"
-scripts/fathom kind <name>              # fact types, briefs, sources
 echo '<row as YAML>' | scripts/fathom add <name>
-scripts/fathom show <name>
+scripts/fathom show <name>              # the lede first, then the facts
+scripts/fathom history <name> lede      # how the bottom line changed
 scripts/fathom brief --record <name> status
 scripts/fathom check <view.html> --record <name>
 scripts/fathom save <view.html> --record <name>
 scripts/fathom views <name>             # each view, and what has moved since it was rendered
 ```
 
-A record keeps its facts in `record.jsonl` and what was rendered from them in
-`views/`. Each saved view is logged with the record version, brief, and style
-it came from, so `views` can tell you which documents are stale and why.
-
 A bare name like `checkout-outage` is a record in `.fathom/checkout-outage/` at
 the root of the repo you're in. `init` makes git ignore `.fathom/`, so records
 stay out of commits until you add one on purpose (`git add -f`). Pass a path
 instead to keep a record anywhere else.
 
+A record keeps its facts in `record.jsonl` and what was rendered from them in
+`views/`. Each saved view is logged with the record version, brief, and style
+it came from, so `views` can tell you which documents are stale and why.
+
 `scripts/fathom --help` documents every subcommand and exit code. The behavior
 each one promises is in the [Requirements](/spec).
+
+## Utilities
+
+Three commands work on a single reply rather than a record. They share the
+record's methods, so they mean the same things by the same words.
+
+- **[`/fathom:proof`](/skills/proof)** rules a claim true or false, with the
+  evidence and how well it is known, using the method `/fathom:render` vets a
+  view's facts with. When the session keeps a record, the ruling goes into it.
+- **[`/fathom:wtf`](/skills/wtf)** rewrites the last reply as the same facts in
+  a shape you can read: shorter (`wall`), clearer (`wat`), from the ground up
+  (`eli`), or in Simplified Technical English (`ste`). `eli` and `ste` are the
+  framing rules briefs use.
+- **[`/fathom:slack`](/skills/slack)** rewrites the last reply for a channel and
+  copies it in Slack's markup, or shares the exchange itself (`transcript`).
+  Like a view, a post is judged against who can read the channel.

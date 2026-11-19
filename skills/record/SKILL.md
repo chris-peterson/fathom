@@ -111,7 +111,39 @@ Rules the schema can't enforce:
   `retracted: true` and a basis saying why. Views as of later versions drop it;
   views as of earlier ones still render it, stamped with their version.
 
-## 4. Climb the fidelity ladder
+## 4. Keep the lede current
+
+The lede is the record's bottom line up front: one statement of where the work
+stands, which every view opens with, reframed for its reader. Judge it here,
+while the session still knows how much each new fact matters, not at render
+time, when the last thing discussed crowds out the rest.
+
+After each `fathom add`, ask whether the batch moves the bottom line: a new
+cause, a scope that grew or shrank, a fix that landed, a fact the lede rests on
+corrected or retracted. When it does, add a new row of the key `lede`:
+
+```yaml
+- key: lede
+  type: lede
+  certainty: inferred
+  basis: <what moved it: the facts that changed and why they change the conclusion>
+  fields:
+    statement: <one sentence: where the work stands, in plain words>
+    rests-on: [<the keys of the facts the statement depends on>]
+```
+
+`add` refuses a lede that isn't `inferred`, names a key the record doesn't
+hold, or states a number none of its `rests-on` facts holds; record the number
+as a fact first. Say where the work stands, not what any one reader should do
+about it: a brief turns the lede into its reader's bottom line.
+
+**Revise it out loud.** Report every change as `lede: <old> → <new>, because
+<why>`, the way a contradiction is surfaced. The lede never changes silently.
+Start one as soon as the facts support a conclusion; `fathom show` leads with
+the lede, or says the record has none yet, and marks it stale when a fact it
+rests on has changed since.
+
+## 5. Climb the fidelity ladder
 
 Evidence arrives at different precisions. For each precise-sounding fact ("at
 18:13:36 the job pruned 42 records"), ask what the actual source is, and reach
@@ -120,11 +152,12 @@ practices that make a timeline hold up, and the boundary on touching production
 systems are in **`references/evidence.md`**. Read it before gathering evidence
 for a timeline.
 
-## 5. Report
+## 6. Report
 
 After each `fathom add`, report the version it reached (`v<N>`), the keys added
-or corrected, any contradiction surfaced, and any `inferred` fact on the causal
-chain with what would confirm it. Offer `/fathom:render` when a reader is
+or corrected, any contradiction surfaced, whether the lede moved (old → new,
+and why), and any `inferred` fact on the causal chain with what would confirm
+it. Offer `/fathom:render` when a reader is
 waiting on a document.
 
 ## Additional resources

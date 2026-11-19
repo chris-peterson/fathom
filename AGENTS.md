@@ -49,6 +49,11 @@ Verify a change by exercising the CLI against a scratch record outside the repo:
   retractions. `add` validates every row against the kind's fact types and
   writes all of them or none. A bare kebab-case name in place of a directory
   resolves to `.fathom/<name>/` at the repo root, which `init` makes git ignore.
+- **Lede.** The record's bottom line is a fact of type `lede` under the key
+  `lede`, revised by `fathom:record` as facts arrive. `add` holds it to being
+  inferred, resting on current facts, and stating only their numbers; `show`
+  leads with it and marks it stale when a fact it rests on changes in content
+  (a `classify` row doesn't count). Each view opens with it, cited.
 - **Kinds.** Resolution through `FATHOM_KINDS`, `extends`, and brief stacking is
   in `docs/extending.md`. `fathom brief` prints the resolved stack plus every
   framing rule it names, and that output is what `fathom:render` follows.

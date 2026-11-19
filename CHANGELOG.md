@@ -8,6 +8,7 @@
 
 ### Added
 
+- **A record keeps its own bottom line, the lede.** One `lede` fact states where the work stands, resting on named facts, and `/fathom:record` revises it out loud whenever new facts move it ("lede: X → Y, because Z"). `fathom show` leads with it and marks it stale when a fact it rests on changes; `fathom add` refuses a lede that isn't inferred, rests on a fact the record doesn't hold, or states a number those facts don't. Every view opens with the lede reframed for its reader, so a one-page status and a long analysis start from the same conclusion.
 - **A `code` field type holds verbatim source**: a diff, a config file, a command's output. Unlike `text`, it may contain `<`, so an XML or HTML diff can be recorded exactly; views escape it.
 - **Views are kept apart from the facts, with the inputs they came from.** `fathom save` checks a view and keeps it in the record's `views/<name>/v<N>.html`, logging the record version, the brief and style it was rendered with, and the visibility. A re-render at the same version sits beside the earlier one instead of replacing it. `/fathom:render` saves every view it writes.
 - **`fathom views` says which documents are stale and why**: the cited facts that changed since each view's version, and whether its brief or style changed since.

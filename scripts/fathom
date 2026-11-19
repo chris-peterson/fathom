@@ -10,6 +10,12 @@ line, append-only. Row 0 holds the record's kind and title; a retitle adds a row
 like it. Every other row is a fact. The record's version is the seq of its last
 row; reading as of version N gives, for each key, its latest row with seq <= N.
 
+The lede is the record's bottom line up front: one fact of type lede, under the
+key `lede`, revised as a new row whenever the facts move it. It is inferred,
+every key in its rests-on is a current fact, and every number in its statement
+is one those facts hold. show leads with it and calls it stale when a fact it
+rests on has changed or been retracted since; each view opens with it.
+
 Views live apart from the facts, in the record's views/ directory: each saved
 view at views/<name>/v<N>.html, and views/renders.jsonl logging every save with
 the inputs it came from (record version, brief and its digest, style and its
@@ -62,6 +68,7 @@ MARKUP = re.compile(r"<[a-zA-Z/!?]")
 DIGITS = re.compile(r"\d+")
 THOUSANDS = re.compile(r"(?<=\d),(?=\d{3}\b)")
 FIELD_TYPES = ("text", "code", "number", "datetime", "date", "url", "enum", "list", "map")
+LEDE = "lede"  # the record's bottom line: both its fact type and its one key
 
 
 def fail(message):
@@ -260,6 +267,10 @@ class Record:
             errors.append(f"key {key!r} is a {earlier['type']}; a key keeps its type")
         if "visibility" in row and row["visibility"] not in VISIBILITY:
             errors.append(f"visibility must be one of {', '.join(VISIBILITY)}, widest first")
+        if ftype == LEDE and key != LEDE:
+            errors.append(f"a lede's key is {LEDE!r}: a record has one lede, revised as a new row of that key")
+        elif key == LEDE and ftype != LEDE:
+            errors.append(f"key {LEDE!r} is the record's lede; use type {LEDE!r}")
         if row.get("retracted"):
             if earlier is None:
                 errors.append(f"cannot retract {key!r}: the record has no row for it")
@@ -277,6 +288,38 @@ class Record:
             errors.append("fields must be an object")
         elif spec is not None:
             errors += field_errors(fields, spec.get("fields") or {})
+            if ftype == LEDE and key == LEDE and not errors:
+                errors += self.lede_errors(row, pending)
+        return errors
+
+    def lede_errors(self, row, pending):
+        """A lede summarizes other facts, so it is inferred, rests on current facts, and holds only their numbers.
+
+        Without the number rule, a view citing the lede would let the lede's own
+        numbers vouch for themselves in `check`.
+        """
+        errors = []
+        if not isinstance(row["fields"].get("statement"), str) or not isinstance(row["fields"].get("rests-on"), list):
+            return [f"a lede needs a text `statement` and a `rests-on` list; kind {self.meta()['kind']!r} redefines "
+                    f"the {LEDE!r} type without them"]
+        if row["certainty"] != "inferred":
+            errors.append("a lede is inferred: it summarizes the facts it rests on")
+        current = self.as_of()
+        for p in pending:
+            if p.get("retracted"):
+                current.pop(p["key"], None)
+            else:
+                current[p["key"]] = p
+        rests_on = row["fields"]["rests-on"]
+        missing = [k for k in rests_on if k == LEDE or k not in current]
+        if missing:
+            errors.append(f"rests-on names {', '.join(map(repr, missing))}, which "
+                          f"{'is' if len(missing) == 1 else 'are'} not a current fact of the record")
+        held = set().union(*(row_runs(current[k]) for k in rests_on if k in current and k != LEDE))
+        loose = sorted(digit_runs(row["fields"]["statement"]) - held)
+        if loose:
+            errors.append(f"statement has {', '.join(map(str, loose))}, which none of the facts it rests on holds; "
+                          f"record the number as a fact and add it to rests-on")
         return errors
 
     def append(self, rows):
@@ -518,17 +561,63 @@ def cmd_add(args):
     record.append([as_text(r) for r in rows])
 
 
+def content(row):
+    """What a row says, apart from who may read it: a classify row says nothing new."""
+    return row.get("fields"), row.get("certainty"), bool(row.get("retracted"))
+
+
+def written_at(record, key, version):
+    """The version where a key's current content was written, looking past rows that only reclassified it."""
+    rows = [r for r in record.rows if r["key"] == key and r["seq"] <= version]
+    seq = rows[-1]["seq"]
+    for r in reversed(rows[:-1]):
+        if content(r) != content(rows[-1]):
+            break
+        seq = r["seq"]
+    return seq
+
+
+def lede_state(record, version=None):
+    """The lede as of a version, the version it was written at, why it is stale, and the rows since."""
+    version = record.version if version is None else version
+    facts = record.as_of(version)
+    lede = facts.get(LEDE)
+    if lede is None:
+        return None, None, [], 0
+    base = written_at(record, LEDE, version)
+    then = record.as_of(base)
+    stale = []
+    for key in lede["fields"].get("rests-on") or []:
+        now_row = facts.get(key)
+        if now_row is None:
+            stale.append(f"{key} was retracted")
+        elif key not in then or content(then[key]) != content(now_row):
+            stale.append(f"{key} changed at v{written_at(record, key, version)}")
+    since = sum(1 for r in record.rows if base < r["seq"] <= version)
+    return lede, base, stale, since
+
+
 def cmd_show(args):
     record = Record(args.dir)
-    facts = record.as_of(args.as_of)
+    version = record.version if args.as_of is None else args.as_of
+    lede, base, stale, since = lede_state(record, version)
+    facts = {k: r for k, r in record.as_of(version).items() if k != LEDE}
     if args.type:
         facts = {k: r for k, r in facts.items() if r["type"] == args.type}
-    version = record.version if args.as_of is None else args.as_of
     meta = record.meta(version)
     if args.full:
-        print(dump({"version": version, "kind": meta["kind"], "title": meta.get("title"), "facts": list(facts.values())}), end="")
+        out = {"version": version, "kind": meta["kind"], "title": meta.get("title")}
+        if lede:
+            out["lede"] = {**lede, "written-at": base, "stale": stale, "rows-since": since}
+        print(dump({**out, "facts": list(facts.values())}), end="")
         return
     print(f"{meta.get('title')} ({meta['kind']}) as of v{version}: {len(facts)} facts")
+    if lede:
+        state = f"stale: {'; '.join(stale)}" if stale else "current"
+        print(f"lede  [v{base}, {state}, {since} {'row' if since == 1 else 'rows'} since]  {lede['fields']['statement']}")
+        print(f"  rests on: {', '.join(lede['fields']['rests-on'])}")
+    else:
+        print("lede  none yet: the record's bottom line, written by /fathom:record")
     for r in sorted(facts.values(), key=lambda r: (r["type"], r["key"])):
         print(f"  {r['key']}  [{r['type']}, {r['certainty']}, {r.get('visibility', 'unclassified')}, v{r['seq']}]  {yaml.safe_dump(r['fields'], default_flow_style=True, width=10**6, allow_unicode=True).strip()}")
 
@@ -694,9 +783,14 @@ def staleness(record, render):
     path = record.dir / render["file"]
     if path.exists():
         then, latest = record.as_of(render["version"]), record.as_of()
-        moved = sorted(k for k in parse_view(path).cited if (then.get(k) or {}).get("seq") != (latest.get(k) or {}).get("seq"))
+        cited = parse_view(path).cited
+        moved = sorted(k for k in cited if (then.get(k) or {}).get("seq") != (latest.get(k) or {}).get("seq"))
         if moved:
             reasons.append(f"{len(moved)} cited facts changed since v{render['version']}: {', '.join(moved)}")
+        if LEDE in cited:
+            _, _, stale, _ = lede_state(record)
+            if stale:
+                reasons.append(f"the lede it opens with is stale ({'; '.join(stale)}); revise the lede before rendering again")
     else:
         reasons.append(f"{render['file']} is missing")
     if find_in_chain(record.chain, "briefs", render["brief"])[2] is None:

@@ -28,7 +28,7 @@ suite:
   activations: [user]
   gloss: "fathom: one record of facts, rendered for each reader."
   pitch: "Stop writing the same facts into three documents that drift apart. Record them once, render every reader's view from the record."
-  what: "Keeps the facts of a piece of work (an incident, an investigation) in one versioned record, then renders each reader's document from it: an analysis for engineers, a status for managers, an explainer for everyone else. Every figure in a view cites the fact it came from, and a check fails any number the record doesn't hold."
+  what: "Keeps the facts of a piece of work (an incident, an investigation) in one named, versioned record with a current bottom line, its lede, then renders each reader's document from it: a one-page status for managers, an analysis for engineers, an explainer for everyone else. Every view opens with the lede in its reader's terms, every figure cites the fact it came from, and a check fails any number the record doesn't hold."
   cmds:
     - ["/fathom:record", "Turn evidence into facts in the record"]
     - ["/fathom:render", "Write a view of the record for one reader"]

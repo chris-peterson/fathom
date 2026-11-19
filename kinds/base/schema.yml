@@ -60,3 +60,17 @@ facts:
       category: {type: text, required: true}
       link: {type: url}
       retention: {type: text}
+  lede:
+    about: >-
+      The record's bottom line up front: one statement of where the work stands.
+      One per record, under the key `lede`. Each revision is a new row, so the
+      lede is versioned with the record: as the work moves (assess the impact,
+      then restore service, then find the cause), a read as of an earlier
+      version returns the lede of that time, and `fathom history <record> lede`
+      shows each change and why. Always inferred, since it summarizes the facts
+      in `rests-on`.
+    fields:
+      statement: {type: text, required: true}
+      # The keys of the facts the statement depends on (`recurrences`, `fix-01`),
+      # each a current fact; show calls the lede stale when one of them changes.
+      rests-on: {type: list, required: true}

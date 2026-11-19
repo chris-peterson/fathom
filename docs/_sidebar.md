@@ -1,10 +1,13 @@
 - [Home](/)
 - [Principles](/principles)
-- [Extending](/extending)
-- [fathom:record](/skills/record)
-- [fathom:render](/skills/render)
-- [fathom:pdf](/skills/pdf)
-- [fathom:proof](/skills/proof)
-- [fathom:wtf](/skills/wtf)
-- [fathom:slack](/skills/slack)
-- [Requirements](/spec)
+- The workflow
+  - [1. fathom:record](/skills/record)
+  - [2. fathom:render](/skills/render)
+  - [3. fathom:pdf](/skills/pdf)
+- Utilities
+  - [fathom:proof](/skills/proof)
+  - [fathom:wtf](/skills/wtf)
+  - [fathom:slack](/skills/slack)
+- Reference
+  - [Extending](/extending)
+  - [Requirements](/spec)

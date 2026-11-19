@@ -40,8 +40,8 @@ When several views are wanted, render every one from the same version unless
 the user asks otherwise, so they agree by construction.
 
 `fathom brief` prints the brief, any brief it extends, and every framing rule
-they name. Follow all of it: the brief decides the bottom line, what goes in,
-the tone, the depth, and what is left out.
+they name. Follow all of it: the brief decides how the bottom line is framed,
+what goes in, the tone, the depth, and what is left out.
 
 ## 2. Read the facts
 
@@ -53,6 +53,13 @@ Use only these rows. **When the brief needs a fact the record doesn't hold,
 stop**: name the missing fact and record it first (`/fathom:record`), then
 render from the new version. A number typed into a view is a fact the record is
 missing.
+
+The output leads with the `lede`: the record's own bottom line, the facts it
+rests on, and whether it is `stale`. **Start from the lede, not from the
+facts.** Working the bottom line out again from every row lets whatever was
+discussed last dominate it. When the record has no lede, or it is stale, stop
+and revise it first (`/fathom:record`, step 4), then render from the new
+version.
 
 ## 3. Vet each fact the view will state
 
@@ -116,8 +123,13 @@ HTML is the form `fathom check` reads; PDF and published pages print from it.
 - **Mark non-facts sparingly.** A number that isn't a fact (a step number typed
   as text, a section count in a heading) goes in an element with
   `data-literal`. The check counts these; a view full of them is hiding facts.
-- **Open with the bottom line** the brief defines, then the detail for the
-  reader who reads on.
+- **Open with the lede, reframed for this reader.** The brief's
+  `bottom-line` says how: the state of the work and the one ask for a manager,
+  the mechanism named for an engineer. Cite it as `data-fact="lede"`, alongside
+  any fact the sentence states beyond it. When the view's bottom line departs
+  from the lede, say why in the view; a reframing that changes the conclusion
+  means the lede is wrong, so revise it instead. Then the detail for the reader
+  who reads on.
 - **State certainty in the audience's terms**: the basis beside the claim for
   engineers, a label ("likely") for a manager, whatever the brief says.
 - **Say what's left out and link the view that has it.** The brief's

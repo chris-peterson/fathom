@@ -31,6 +31,7 @@ just preview-docs       # serve it locally
 
 ## Status
 
-Early. The record, kinds, briefs, and the view check are in place; drift
-detection (`DRIFT-*`), views as chat posts and emails (`FORMAT-07` to
+Early. The record, its lede, kinds, briefs, and the view check are in place;
+compacting a record when a session's conversation compacts, drift detection
+(`DRIFT-*`), views as chat posts and emails (`FORMAT-07` to
 `FORMAT-11`), and a plugin manifest are not yet.
