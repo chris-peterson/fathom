@@ -28,9 +28,15 @@ schema.yml, briefs/*.md, and optionally framing/*.md and sources.md. A kind
 whose schema.yml names `extends: <kind>` inherits that kind's fact types,
 briefs, framing rules, and sources, and replaces any it redefines.
 
-A record argument that is a bare kebab-case name (checkout-outage) names a
-record under .fathom/ at the root of the git repo holding the working
-directory, or under ./.fathom outside a repo; anything else is a path. init
+A record argument that is a bare kebab-case name (checkout-outage), or two
+qualified as <route>/<tack> (auth-rewrite/t3), names a record under .fathom/ at
+the root of the git repo holding the working directory, or under ./.fathom
+outside a repo; anything else is a path.
+
+Every write notes the Claude session it came from (CLAUDE_CODE_SESSION_ID) in a
+ledger under $FATHOM_STATE, else $XDG_STATE_HOME/fathom, else
+~/.local/state/fathom, so `touched` can list the records a session wrote and a
+compaction pass leaves every other record alone. init
 writes .fathom/.gitignore holding `*`, so a record stays out of commits until
 someone adds it on purpose (git add -f, or deleting that file).
 
@@ -47,6 +53,8 @@ Exit codes:
   3  check found failures; each is printed with its text
 """
 import argparse
+import fcntl
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -54,6 +62,7 @@ import shutil
 import re
 import subprocess
 import sys
+import time
 from datetime import date, datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
@@ -64,11 +73,17 @@ PLUGIN_ROOT = Path(os.environ.get("CLAUDE_PLUGIN_ROOT") or Path(__file__).resolv
 CERTAINTY = ("measured", "observed", "inferred")
 VISIBILITY = ("public", "internal", "private")
 KEY = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+NAME = re.compile(r"^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)?$")  # a bare record name: <name> or <route>/<tack>
 MARKUP = re.compile(r"<[a-zA-Z/!?]")
 DIGITS = re.compile(r"\d+")
 THOUSANDS = re.compile(r"(?<=\d),(?=\d{3}\b)")
 FIELD_TYPES = ("text", "code", "number", "datetime", "date", "url", "enum", "list", "map")
 LEDE = "lede"  # the record's bottom line: both its fact type and its one key
+# Why a fact was retracted. A retraction without one is `wrong`, the original meaning.
+REASONS = ("wrong", "duplicate", "irrelevant")
+# How one fact bears on others, recorded on the newer fact, which is the one that knows about the older.
+RELATIONS = ("supersedes", "contradicts", "corroborates")
+INVERSE = {"supersedes": "superseded by", "contradicts": "contradicted by", "corroborates": "corroborated by"}
 
 
 def fail(message):
@@ -178,12 +193,34 @@ def listed(chain, sub):
     return names
 
 
-def front_matter(path):
+class BriefError(Exception):
+    pass
+
+
+def parse_front_matter(path):
+    """A brief's front matter and body; raises BriefError naming the file, line, and column."""
     text = path.read_text()
     if not text.startswith("---\n"):
         return {}, text
     head, _, body = text[4:].partition("\n---\n")
-    return yaml.safe_load(head) or {}, body
+    try:
+        meta = yaml.safe_load(head) or {}
+    except yaml.YAMLError as e:
+        mark = getattr(e, "problem_mark", None)
+        where = f" at line {mark.line + 2}, column {mark.column + 1}" if mark else ""  # +2: the opening --- is line 1
+        why = getattr(e, "problem", None) or str(e).splitlines()[0]
+        hint = "; quote a value that holds ': '" if "mapping values" in str(why) else ""
+        raise BriefError(f"{path}: front matter is not valid YAML{where}: {why}{hint}") from None
+    if not isinstance(meta, dict):
+        raise BriefError(f"{path}: front matter must be a mapping of fields, not {type(meta).__name__}")
+    return meta, body
+
+
+def front_matter(path):
+    try:
+        return parse_front_matter(path)
+    except BriefError as e:
+        fail(str(e))
 
 
 
@@ -197,8 +234,44 @@ def records_root():
 
 
 def record_dir(arg):
-    """A bare kebab-case name is a record under records_root(); anything else is a path."""
-    return records_root() / arg if KEY.match(arg) else Path(arg)
+    """A bare name is a record under records_root(); anything else is a path.
+
+    A bare name is kebab-case, or two of them qualified as <route>/<tack>, the
+    way tack names a unit of work, so each tack keeps its own record.
+    """
+    return records_root() / arg if NAME.match(arg) else Path(arg)
+
+
+def state_dir():
+    return Path(os.environ.get("FATHOM_STATE") or Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local/state") / "fathom")
+
+
+def ledger_path(session):
+    return state_dir() / "sessions" / f"{session}.jsonl"
+
+
+def log_timing(command, started, status):
+    """One line per CLI run, so `fathom metrics` can say what the CLI costs in time."""
+    try:
+        path = state_dir() / "timings.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        append_jsonl(path, [{"at": now(), "command": command, "ms": round((time.monotonic() - started) * 1000),
+                             "status": status, "session": os.environ.get("CLAUDE_CODE_SESSION_ID")}])
+    except OSError:
+        pass
+
+
+def note_session(record, command):
+    """Log which records this Claude session wrote, so its compaction pass touches only those."""
+    session = os.environ.get("CLAUDE_CODE_SESSION_ID")
+    if not session or not re.fullmatch(r"[A-Za-z0-9-]+", session):
+        return
+    path = ledger_path(session)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        append_jsonl(path, [{"record": str(record.dir.resolve()), "at": now(), "command": command, "version": record.version}])
+    except OSError:
+        pass  # the ledger is a convenience; a write it can't log is still written
 
 
 class Record:
@@ -207,13 +280,38 @@ class Record:
         self.path = self.dir / "record.jsonl"
         if not self.path.is_file():
             fail(f"no record at {self.dir} (missing record.jsonl); start one with `fathom init`")
+        self.load()
+        self._lock, self._depth = None, 0
+        self.views = self.dir / "views"
+        self.chain = kind_chain(self.meta()["kind"])
+        self.types = fact_types(self.chain)
+
+    def load(self):
         self.all = read_jsonl(self.path)
         if not self.all or self.all[0].get("seq") != 0 or not (self.all[0].get("record") or {}).get("kind"):
             fail(f"{self.path} does not open with row 0 naming the record's kind")
         self.rows = [r for r in self.all if "record" not in r]
-        self.views = self.dir / "views"
-        self.chain = kind_chain(self.meta()["kind"])
-        self.types = fact_types(self.chain)
+
+    @contextmanager
+    def writing(self):
+        """Hold the record's write lock and read it fresh, so concurrent writers can't number rows from one version.
+
+        Re-entrant within a process: a command that reads the facts it will
+        rewrite (classify) takes the lock first, and append inside it nests.
+        """
+        if self._depth == 0:
+            self._lock = self.path.open("a")
+            fcntl.flock(self._lock, fcntl.LOCK_EX)
+            self.load()
+        self._depth += 1
+        try:
+            yield self
+        finally:
+            self._depth -= 1
+            if self._depth == 0:
+                fcntl.flock(self._lock, fcntl.LOCK_UN)
+                self._lock.close()
+                self._lock = None
 
     @property
     def version(self):
@@ -244,15 +342,16 @@ class Record:
             seq += 1
             out.append({"seq": seq, **{k: v for k, v in row.items() if k != "recorded"}, "recorded": at}
                        if "record" in row else {"seq": seq, "key": row["key"], "type": row["type"], "recorded": at,
-                                                **{k: row[k] for k in ("certainty", "basis", "fields", "retracted", "visibility") if k in row}})
+                                                **{k: row[k] for k in ("certainty", "basis", "fields", "relates", "retracted", "reason", "visibility") if k in row}})
         append_jsonl(self.path, out)
         self.all += out
         self.rows += [r for r in out if "record" not in r]
+        note_session(self, sys.argv[1] if len(sys.argv) > 1 else "?")
         return out
 
     def validate(self, row, pending):
         errors = []
-        unknown = set(row) - {"key", "type", "certainty", "basis", "fields", "retracted", "visibility"}
+        unknown = set(row) - {"key", "type", "certainty", "basis", "fields", "relates", "retracted", "reason", "visibility"}
         if unknown:
             errors.append(f"unknown row properties: {', '.join(sorted(unknown))}")
         key = row.get("key")
@@ -271,6 +370,14 @@ class Record:
             errors.append(f"a lede's key is {LEDE!r}: a record has one lede, revised as a new row of that key")
         elif key == LEDE and ftype != LEDE:
             errors.append(f"key {LEDE!r} is the record's lede; use type {LEDE!r}")
+        if "reason" in row and not row.get("retracted"):
+            errors.append("reason belongs on a retraction: why the fact was dropped")
+        elif "reason" in row and row["reason"] not in REASONS:
+            errors.append(f"reason must be one of {', '.join(REASONS)}")
+        if "relates" in row and row.get("retracted"):
+            errors.append("relates belongs on a fact, not a retraction")
+        elif "relates" in row:
+            errors += self.relation_errors(row, pending)
         if row.get("retracted"):
             if earlier is None:
                 errors.append(f"cannot retract {key!r}: the record has no row for it")
@@ -292,6 +399,30 @@ class Record:
                 errors += self.lede_errors(row, pending)
         return errors
 
+    def current(self, pending):
+        """The current facts with the rows of an addition in progress applied, in order."""
+        current = self.as_of()
+        for p in pending:
+            if p.get("retracted"):
+                current.pop(p["key"], None)
+            else:
+                current[p["key"]] = p
+        return current
+
+    def relation_errors(self, row, pending):
+        relates = row["relates"]
+        if not isinstance(relates, dict) or not all(isinstance(v, list) and all(isinstance(k, str) for k in v) for v in relates.values()):
+            return ["relates must map a relation to a list of fact keys: {supersedes: [<key>, ...]}"]
+        errors = [f"relation {r!r} is not one of {', '.join(RELATIONS)}" for r in relates if r not in RELATIONS]
+        current = self.current(pending)
+        for rel, keys in relates.items():
+            for k in keys:
+                if k == row.get("key") or k == LEDE:
+                    errors.append(f"{rel} names {k!r}; a fact relates to other facts, and the lede to its rests-on")
+                elif k not in current:
+                    errors.append(f"{rel} names {k!r}, which is not a current fact of the record")
+        return errors
+
     def lede_errors(self, row, pending):
         """A lede summarizes other facts, so it is inferred, rests on current facts, and holds only their numbers.
 
@@ -304,12 +435,7 @@ class Record:
                     f"the {LEDE!r} type without them"]
         if row["certainty"] != "inferred":
             errors.append("a lede is inferred: it summarizes the facts it rests on")
-        current = self.as_of()
-        for p in pending:
-            if p.get("retracted"):
-                current.pop(p["key"], None)
-            else:
-                current[p["key"]] = p
+        current = self.current(pending)
         rests_on = row["fields"]["rests-on"]
         missing = [k for k in rests_on if k == LEDE or k not in current]
         if missing:
@@ -323,6 +449,10 @@ class Record:
         return errors
 
     def append(self, rows):
+        with self.writing():
+            self._append(rows)
+
+    def _append(self, rows):
         pending, problems = [], []
         for i, row in enumerate(rows):
             errors = self.validate(row, pending)
@@ -339,6 +469,8 @@ class Record:
             earlier = next((r for r in reversed(self.rows) if r["key"] == row["key"]), None)
             if "visibility" not in row and not row.get("retracted") and earlier and earlier.get("visibility"):
                 row["visibility"] = earlier["visibility"]
+            if "relates" not in row and not row.get("retracted") and earlier and earlier.get("relates"):
+                row["relates"] = earlier["relates"]  # a correction keeps its relations unless it restates them
         for stored in self.stamp(pending):
             note = " (retracted)" if stored.get("retracted") else f" ({stored['visibility']})" if stored.get("visibility") else ""
             print(f"v{stored['seq']} {stored['key']}{note}")
@@ -529,6 +661,11 @@ def check(view_path, record):
     known = {c: sorted(k for k in parser.cited & set(facts) if facts[k].get("certainty") == c) for c in CERTAINTY}
     tally = ", ".join(f"{len(known[c])} {c}" for c in CERTAINTY)
     print(f"  cited facts are known as: {tally}" + (f"; inferred: {', '.join(known['inferred'])}" if known["inferred"] else ""))
+    into = inbound(facts)
+    for rel in ("contradicted by", "superseded by"):
+        hit = [f"{k} ({', '.join(into[k][rel])})" for k in sorted(parser.cited & set(facts)) if into.get(k, {}).get(rel)]
+        if hit:
+            print(f"  cites facts {rel} others; say so or drop them: {', '.join(hit)}")
     return 3 if failures else 0
 
 
@@ -540,9 +677,10 @@ def cmd_init(args):
     kind_chain(args.kind)
     d.mkdir(parents=True, exist_ok=True)
     root = records_root()
-    if d.resolve().parent == root.resolve() and not (root / ".gitignore").exists():
+    if root.resolve() in d.resolve().parents and not (root / ".gitignore").exists():
         (root / ".gitignore").write_text("# fathom records stay out of commits until added on purpose (git add -f).\n*\n")
-    append_jsonl(d / "record.jsonl", [{"seq": 0, "record": {"kind": args.kind, "title": args.title or d.name}, "recorded": now()}])
+    append_jsonl(d / "record.jsonl", [{"seq": 0, "record": {"kind": args.kind, "title": args.title or (args.dir if NAME.match(args.dir) else d.name)}, "recorded": now()}])
+    note_session(Record(args.dir), "init")
     print(f"{d}: new {args.kind} record, v0")
 
 
@@ -563,7 +701,7 @@ def cmd_add(args):
 
 def content(row):
     """What a row says, apart from who may read it: a classify row says nothing new."""
-    return row.get("fields"), row.get("certainty"), bool(row.get("retracted"))
+    return row.get("fields"), row.get("certainty"), row.get("relates"), bool(row.get("retracted"))
 
 
 def written_at(record, key, version):
@@ -577,8 +715,25 @@ def written_at(record, key, version):
     return seq
 
 
+def inbound(facts):
+    """For each fact, the current facts relating to it: {key: {"superseded by": [k, ...], ...}}."""
+    out = {}
+    for key, row in facts.items():
+        for rel, targets in (row.get("relates") or {}).items():
+            for t in targets:
+                if t in facts and rel in INVERSE:
+                    out.setdefault(t, {}).setdefault(INVERSE[rel], []).append(key)
+    return out
+
+
+def relation_line(row, into):
+    parts = [f"{rel} {', '.join(keys)}" for rel, keys in (row.get("relates") or {}).items() if keys]
+    parts += [f"{rel} {', '.join(keys)}" for rel, keys in into.items()]
+    return "; ".join(parts)
+
+
 def lede_state(record, version=None):
-    """The lede as of a version, the version it was written at, why it is stale, and the rows since."""
+    """The lede as of a version, the version it was written at, why it is stale, and the facts changed since."""
     version = record.version if version is None else version
     facts = record.as_of(version)
     lede = facts.get(LEDE)
@@ -586,6 +741,7 @@ def lede_state(record, version=None):
         return None, None, [], 0
     base = written_at(record, LEDE, version)
     then = record.as_of(base)
+    into = inbound(facts)
     stale = []
     for key in lede["fields"].get("rests-on") or []:
         now_row = facts.get(key)
@@ -593,7 +749,16 @@ def lede_state(record, version=None):
             stale.append(f"{key} was retracted")
         elif key not in then or content(then[key]) != content(now_row):
             stale.append(f"{key} changed at v{written_at(record, key, version)}")
-    since = sum(1 for r in record.rows if base < r["seq"] <= version)
+        for rel in ("superseded by", "contradicted by"):
+            if into.get(key, {}).get(rel):
+                stale.append(f"{key} is {rel} {', '.join(into[key][rel])}")
+    since, said = 0, {}
+    for r in record.rows:
+        if r["seq"] > version:
+            break
+        if r["seq"] > base and said.get(r["key"]) != content(r):
+            since += 1  # a classify row says nothing new, so it doesn't count
+        said[r["key"]] = content(r)
     return lede, base, stale, since
 
 
@@ -608,31 +773,55 @@ def cmd_show(args):
     if args.full:
         out = {"version": version, "kind": meta["kind"], "title": meta.get("title")}
         if lede:
-            out["lede"] = {**lede, "written-at": base, "stale": stale, "rows-since": since}
+            out["lede"] = {**lede, "written-at": base, "stale": stale, "changes-since": since}
+        if args.cited:
+            cites = cited_by(record)
+            out["cited-by"] = {k: cites[k] for k in facts if k in cites}
+        into = inbound(record.as_of(version))
+        if any(k in into for k in facts):
+            out["related-by"] = {k: into[k] for k in facts if k in into}
         print(dump({**out, "facts": list(facts.values())}), end="")
         return
     print(f"{meta.get('title')} ({meta['kind']}) as of v{version}: {len(facts)} facts")
     if lede:
         state = f"stale: {'; '.join(stale)}" if stale else "current"
-        print(f"lede  [v{base}, {state}, {since} {'row' if since == 1 else 'rows'} since]  {lede['fields']['statement']}")
+        print(f"lede  [v{base}, {state}, {since} fact {'change' if since == 1 else 'changes'} since]  {lede['fields']['statement']}")
         print(f"  rests on: {', '.join(lede['fields']['rests-on'])}")
     else:
         print("lede  none yet: the record's bottom line, written by /fathom:record")
+    cites = cited_by(record) if args.cited else {}
+    into = inbound(record.as_of(version))
     for r in sorted(facts.values(), key=lambda r: (r["type"], r["key"])):
         print(f"  {r['key']}  [{r['type']}, {r['certainty']}, {r.get('visibility', 'unclassified')}, v{r['seq']}]  {yaml.safe_dump(r['fields'], default_flow_style=True, width=10**6, allow_unicode=True).strip()}")
+        related = relation_line(r, into.get(r["key"], {}))
+        if related:
+            print(f"    {related}")
+        if args.cited:
+            print(f"    cited by: {', '.join(cites.get(r['key'], [])) or 'no saved view'}")
+
+
+def cited_by(record):
+    """For each fact key, the saved views whose latest render cites it: what a retraction would make stale."""
+    log, out = renders(record), {}
+    for name in dict.fromkeys(r["view"] for r in log if r["event"] == "rendered"):
+        path = record.dir / latest_render(log, name)["file"]
+        for key in parse_view(path).cited if path.exists() else ():
+            out.setdefault(key, []).append(name)
+    return out
 
 
 def cmd_classify(args):
     record = Record(args.dir)
-    facts = record.as_of()
-    missing = [k for k in args.keys if k not in facts]
-    if missing:
-        fail(f"the record holds no current fact {', '.join(map(repr, missing))}")
-    rows = []
-    for key in args.keys:
-        row = {k: v for k, v in facts[key].items() if k in ("key", "type", "certainty", "basis", "fields")}
-        rows.append({**row, "visibility": args.visibility})
-    record.append(rows)
+    with record.writing():  # copy each fact as it stands under the lock, so a concurrent correction isn't undone
+        facts = record.as_of()
+        missing = [k for k in args.keys if k not in facts]
+        if missing:
+            fail(f"the record holds no current fact {', '.join(map(repr, missing))}")
+        rows = []
+        for key in args.keys:
+            row = {k: v for k, v in facts[key].items() if k in ("key", "type", "certainty", "basis", "fields")}
+            rows.append({**row, "visibility": args.visibility})
+        record.append(rows)
 
 
 def cmd_history(args):
@@ -649,9 +838,10 @@ def cmd_version(args):
 
 def cmd_retitle(args):
     record = Record(args.dir)
-    if record.meta().get("title") == args.title:
-        fail(f"the record is already titled {args.title!r}")
-    print(f"v{record.stamp([{'record': {'title': args.title}}])[0]['seq']} title: {args.title}")
+    with record.writing():
+        if record.meta().get("title") == args.title:
+            fail(f"the record is already titled {args.title!r}")
+        print(f"v{record.stamp([{'record': {'title': args.title}}])[0]['seq']} title: {args.title}")
 
 
 def cmd_kind(args):
@@ -664,8 +854,17 @@ def cmd_kind(args):
     for sub in ("briefs", "framing"):
         names = listed(chain, sub)
         print(f"{sub}: " + (", ".join(f"{n} ({k})" for n, k in sorted(names.items())) or "none"))
+    broken = []
+    for name in sorted(listed(chain, "briefs")):
+        try:
+            parse_front_matter(find_in_chain(chain, "briefs", name)[2])
+        except BriefError as e:
+            broken.append(str(e))
+    for problem in broken:
+        print(f"broken brief: {problem}")
     sources = [str(d / "sources.md") for _, d, _ in reversed(chain) if (d / "sources.md").is_file()]
     print("sources: " + (", ".join(sources) or "none"))
+    return 1 if broken else 0
 
 
 def resolved_brief(chain, name):
@@ -736,24 +935,35 @@ def cmd_save(args):
     name = args.name or brief
     if not KEY.match(name):
         fail(f"view name {name!r} must be lowercase letters, digits, and hyphens")
+    # Everything that can fail runs before anything is written: a file in views/
+    # without its renders.jsonl row is a render that `views` and `publish` can't see.
+    digests = brief_digest(record.chain, brief), style_digest(style)
+    log = renders(record)
     folder = record.views / name
-    folder.mkdir(parents=True, exist_ok=True)
     content, n = src.read_bytes(), 1
     while True:
         dest = folder / f"v{version}{'' if n == 1 else f'-{n}'}{src.suffix}"
         if not dest.exists() or dest.read_bytes() == content:
             break
         n += 1
-    if dest.exists():
-        print(f"{dest.relative_to(record.dir)}: unchanged; already saved")
+    rel = str(dest.relative_to(record.dir))
+    if dest.exists() and any(r["event"] == "rendered" and r["view"] == name and r["file"] == rel for r in log):
+        print(f"{rel}: unchanged; already saved")
         return 0
-    shutil.copyfile(src, dest)
-    row = {"n": len(renders(record)) + 1, "event": "rendered", "at": now(), "view": name,
-           "file": str(dest.relative_to(record.dir)), "version": version, "brief": brief,
-           "brief-digest": brief_digest(record.chain, brief), "style": style, "style-digest": style_digest(style),
+    row = {"n": len(log) + 1, "event": "rendered", "at": now(), "view": name, "file": rel, "version": version,
+           "brief": brief, "brief-digest": digests[0], "style": style, "style-digest": digests[1],
            "format": {".md": "markdown"}.get(src.suffix, src.suffix.lstrip(".")), "visibility": stamps["fathom-visibility"]}
-    append_jsonl(record.views / "renders.jsonl", [row])
-    print(f"{row['file']}: saved, render {row['n']}")
+    repaired = dest.exists()  # left by an earlier save that failed after copying; log it now
+    if not repaired:
+        folder.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src, dest)
+    try:
+        append_jsonl(record.views / "renders.jsonl", [row])
+    except OSError as e:
+        if not repaired:
+            dest.unlink(missing_ok=True)
+        fail(f"saved nothing: could not log the render: {e}")
+    print(f"{rel}: {'logged a render an earlier save left unlogged' if repaired else 'saved'}, render {row['n']}")
     return 0
 
 
@@ -825,6 +1035,142 @@ def cmd_views(args):
     return 0
 
 
+def cmd_compact(args):
+    """What a compaction pass can find mechanically; deciding a fact is wrong takes the session's judgment."""
+    record = Record(args.dir)
+    facts = record.as_of()
+    print(f"{record.meta().get('title')}: {len(facts)} current facts from {len(record.rows)} rows, v{record.version}")
+    found = 0
+    same = {}
+    for key, row in facts.items():
+        if key != LEDE:
+            same.setdefault((row["type"], json.dumps(row["fields"], sort_keys=True)), []).append(key)
+    for (ftype, _), keys in sorted(same.items(), key=lambda kv: kv[1]):
+        if len(keys) > 1:
+            found += 1
+            print(f"duplicate  {ftype} {', '.join(sorted(keys))}: identical fields; keep one, retract the rest with a basis naming it")
+    into = inbound(facts)
+    by = {}
+    for key, rels in into.items():
+        for newer in rels.get("superseded by", []):
+            by.setdefault(newer, []).append(key)
+    for newer, old in sorted(by.items()):
+        found += 1
+        print(f"superseded by {newer}: {', '.join(sorted(old))}: a theme to offer as no longer relevant, weighed against the briefs that need it")
+    seen = set()
+    for key, rels in sorted(into.items()):
+        for other in rels.get("contradicted by", []):
+            pair = tuple(sorted((key, other)))
+            if pair not in seen:
+                seen.add(pair)
+                found += 1
+                print(f"contradiction  {other} contradicts {key}: settle it with evidence, or keep both and say so in every view citing either")
+    lede, base, stale, since = lede_state(record)
+    if lede is None:
+        found += 1
+        print("lede       none: write one from the facts that hold")
+    elif stale:
+        found += 1
+        print(f"lede       stale ({'; '.join(stale)}): confirm it or revise it, repointing rests-on at surviving keys")
+    elif since:
+        print(f"lede       current; {since} fact {'change' if since == 1 else 'changes'} since v{base}: confirm it still holds")
+    print(f"{found} mechanical {'finding' if found == 1 else 'findings'}; wrong facts and differently worded duplicates "
+          f"are the user's call (/fathom:compact)")
+    return 0
+
+
+def cmd_touched(args):
+    """The records a Claude session wrote, latest write last, one directory per line."""
+    session = args.session or os.environ.get("CLAUDE_CODE_SESSION_ID")
+    if not session or not re.fullmatch(r"[A-Za-z0-9-]+", session):
+        fail("touched needs --session <id> or CLAUDE_CODE_SESSION_ID")
+    path = ledger_path(session)
+    last = {}
+    for row in read_jsonl(path) if path.exists() else []:
+        last.pop(row["record"], None)
+        last[row["record"]] = row
+    for record, row in last.items():
+        if (Path(record) / "record.jsonl").is_file():
+            print(f"{record}  v{row['version']}" if args.verbose else record)
+    return 0
+
+
+FATHOM_HOOKS = ("/hooks/tack.sh", "/hooks/after-compact.sh")  # pre-compact's output goes to the summary, not the context
+FATHOM_CALL = re.compile(r"(^|[\s/;&|(])fathom(\s|$)")
+
+
+def cmd_metrics(args):
+    """What fathom cost a session: time from the CLI's own log, tokens from the session's transcript."""
+    timings = [r for r in read_jsonl(state_dir() / "timings.jsonl")] if (state_dir() / "timings.jsonl").exists() else []
+    session = args.session or os.environ.get("CLAUDE_CODE_SESSION_ID")
+    if session:
+        timings = [r for r in timings if r.get("session") == session]
+    by = {}
+    for r in timings:
+        by.setdefault(r["command"], []).append(r["ms"])
+    print(f"CLI time{' for session ' + session if session else ''}: {len(timings)} runs, "
+          f"{sum(sum(v) for v in by.values()) / 1000:.1f} s in process (each run also pays about 0.1 s to start)")
+    for command, ms in sorted(by.items(), key=lambda kv: -sum(kv[1])):
+        ms = sorted(ms)
+        print(f"  {command:10} {len(ms):4} runs  median {ms[len(ms) // 2]:5} ms  max {ms[-1]:5} ms")
+    if not args.transcript:
+        return 0
+    path = Path(args.transcript).expanduser()
+    if not path.is_file():
+        fail(f"no transcript at {path}")
+    requests, order, calls, results, tools = {}, [], {}, {}, {}
+    hooks = {"chars": 0, "runs": 0, "ms": []}
+    for line in path.read_text().splitlines():
+        try:
+            d = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        msg = d.get("message") or {}
+        if d.get("type") == "assistant" and msg.get("usage"):
+            rid = d.get("requestId") or d.get("uuid")
+            if rid not in requests:
+                order.append(rid)
+            requests[rid] = msg["usage"]
+            for block in msg.get("content") or []:
+                if block.get("type") != "tool_use":
+                    continue
+                tools[rid] = tools.get(rid, 0) + 1
+                inp = block.get("input") or {}
+                if (block.get("name") == "Bash" and FATHOM_CALL.search(inp.get("command", ""))) or \
+                        (block.get("name") == "Skill" and str(inp.get("skill", "")).lstrip("/").startswith("fathom:")):
+                    calls[block["id"]] = rid
+        elif d.get("type") == "user" and isinstance(msg.get("content"), list):
+            for block in msg["content"]:
+                if block.get("type") == "tool_result" and block.get("tool_use_id") in calls:
+                    content = block.get("content")
+                    text = content if isinstance(content, str) else json.dumps(content)
+                    results[block["tool_use_id"]] = (len(order), len(text))
+        elif d.get("type") == "attachment":
+            att = d.get("attachment") or {}
+            if str(att.get("command", "")).rstrip('"').endswith(FATHOM_HOOKS):
+                hooks["runs"] += 1
+                hooks["ms"].append(int(att.get("durationMs") or 0))
+                text = str(att.get("content") or "")
+                if text.startswith(("fathom", "This session kept fathom")):
+                    hooks["chars"] += len(text)
+    total_out = sum(u.get("output_tokens", 0) for u in requests.values())
+    total_in = sum(u.get("input_tokens", 0) + u.get("cache_read_input_tokens", 0) + u.get("cache_creation_input_tokens", 0)
+                   for u in requests.values())
+    # A request that made several tool calls is charged to fathom only for its fathom calls' share.
+    fathom_out = sum(requests[rid].get("output_tokens", 0) / tools[rid] for rid in calls.values())
+    added = sum(n for _, n in results.values()) / 4  # about four characters a token
+    carried = sum(n / 4 * (len(order) - at) for at, n in results.values())  # each result is re-read by every later request
+    print(f"tokens in {path.name}: {len(order)} requests, {total_in:,} input (cached included), {total_out:,} output")
+    print(f"  fathom calls        {len(calls)} (CLI and fathom skills)")
+    print(f"  output writing them about {fathom_out:,.0f} tokens ({fathom_out / max(total_out, 1):.0%} of output)")
+    print(f"  results they added  about {added:,.0f} tokens, re-read by later requests for about {carried:,.0f} "
+          f"({carried / max(total_in, 1):.0%} of input)")
+    ms = sorted(hooks["ms"]) or [0]
+    print(f"  hooks               {hooks['runs']} runs, median {ms[len(ms) // 2]} ms, max {ms[-1]} ms; "
+          f"context they added about {hooks['chars'] / 4:,.0f} tokens")
+    return 0
+
+
 def build_parser():
     p = argparse.ArgumentParser(prog="fathom", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -844,6 +1190,7 @@ def build_parser():
     s.add_argument("--as-of", type=int)
     s.add_argument("--type")
     s.add_argument("--full", action="store_true", help="every field of every row, as YAML")
+    s.add_argument("--cited", action="store_true", help="the saved views citing each fact: what retracting it would make stale")
     s.set_defaults(func=cmd_show)
 
     s = sub.add_parser("classify", help="set who may read facts, as a new row of each")
@@ -898,6 +1245,20 @@ def build_parser():
     s.add_argument("--file", help="a saved render other than the view's latest, as views/<name>/v<N>.html")
     s.set_defaults(func=cmd_publish)
 
+    s = sub.add_parser("compact", help="what a compaction pass can find mechanically: duplicates and a stale lede")
+    s.add_argument("dir")
+    s.set_defaults(func=cmd_compact)
+
+    s = sub.add_parser("metrics", help="what fathom cost: CLI time, and tokens in a session's transcript")
+    s.add_argument("--session", help="limit CLI time to one session; defaults to CLAUDE_CODE_SESSION_ID")
+    s.add_argument("--transcript", help="a Claude Code transcript (.jsonl) to attribute tokens from")
+    s.set_defaults(func=cmd_metrics)
+
+    s = sub.add_parser("touched", help="the records a Claude session wrote to")
+    s.add_argument("--session", help="the session id; defaults to CLAUDE_CODE_SESSION_ID")
+    s.add_argument("-v", "--verbose", action="store_true", help="add the version each record reached")
+    s.set_defaults(func=cmd_touched)
+
     s = sub.add_parser("views", help="each saved view's latest render, and what has moved since")
     s.add_argument("record")
     s.set_defaults(func=cmd_views)
@@ -912,7 +1273,16 @@ def main(argv):
         parser.print_help(sys.stderr)
         return 2
     args = parser.parse_args(argv)
-    return args.func(args) or 0
+    started, status = time.monotonic(), 1
+    try:
+        status = args.func(args) or 0
+        return status
+    except SystemExit as e:
+        status = e.code if isinstance(e.code, int) else 1
+        raise
+    finally:
+        if args.cmd != "metrics":
+            log_timing(args.cmd, started, status)
 
 
 if __name__ == "__main__":

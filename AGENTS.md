@@ -14,11 +14,12 @@ SPEC.md              requirements (EARS), the source of record for behavior
 docs/principles.md   why documents are views, and the patterns this follows
 docs/extending.md    how a team adds or extends a kind
 scripts/fathom       the CLI: record, kinds, briefs, and the view check
-skills/              fathom:record, fathom:render, fathom:pdf, fathom:proof, fathom:wtf, fathom:slack
+skills/              fathom:record, fathom:render, fathom:pdf, fathom:compact, fathom:proof, fathom:wtf, fathom:slack
+hooks/               compaction (carry a record's reasoning through it, then compact), and the tack subscriber
 guides/              long-form methods the skills name by path (verification)
 skills/render/styles/ named view styles, one stylesheet each (how-to)
 kinds/base/framing/  writing styles (eli, ste): a brief's framing and a /fathom:wtf mode
-kinds/               the kinds fathom ships: base, and incident and release as examples
+kinds/               the kinds fathom ships: base, session (one record per tack), and incident and release as examples
 ```
 
 ## Running it
@@ -53,7 +54,18 @@ Verify a change by exercising the CLI against a scratch record outside the repo:
   `lede`, revised by `fathom:record` as facts arrive. `add` holds it to being
   inferred, resting on current facts, and stating only their numbers; `show`
   leads with it and marks it stale when a fact it rests on changes in content
-  (a `classify` row doesn't count). Each view opens with it, cited.
+  (a `classify` row doesn't count), or when one is superseded or contradicted.
+  Each view opens with it, cited.
+- **Relations and compaction.** A row's `relates` names the current facts it
+  supersedes, contradicts, or corroborates. Compaction only appends
+  retractions (with a `reason`), and only what the user confirms; the hooks
+  find a session's records through the ledger every write notes
+  (`fathom touched`).
+- **tack.** `hooks/tack.sh` watches tack without tack knowing: a `tack session
+  <route> <sid> --tack <tack>` command starts the `session` record
+  `<route>/<tack>`, `/goal` updates its goal, and `/tack:end` (typed or invoked)
+  asks for the recap before the retro. It must stay silent and fast on every
+  other prompt and Bash call; `fathom metrics --transcript` shows its cost.
 - **Kinds.** Resolution through `FATHOM_KINDS`, `extends`, and brief stacking is
   in `docs/extending.md`. `fathom brief` prints the resolved stack plus every
   framing rule it names, and that output is what `fathom:render` follows.

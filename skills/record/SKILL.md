@@ -57,10 +57,13 @@ more precise, and what is newly evidenced.
 
 **When new data contradicts a recorded fact, say so before recording it.** An
 identifier that doesn't match a recorded wildcard, an audit timestamp an hour
-off a recorded event: name the fact key, both values, and both sources, then
-record the correction as a new row of the same key with a basis that explains
-it. The record keeps both rows, and the user learns which views it changes. A
-silent revision corrupts the record the user relies on.
+off a recorded event: name the fact key, both values, and both sources. When the
+new evidence settles it, record the correction as a new row of the same key
+with a basis that explains it; the record keeps both rows, and the user learns
+which views it changes. When it doesn't settle it, record the new fact under
+its own key with `relates: {contradicts: [<key>]}`, so the open contradiction
+outlives the conversation. A silent revision corrupts the record the user
+relies on.
 
 ## 3. Write rows
 
@@ -107,6 +110,14 @@ Rules the schema can't enforce:
   internal | private>` when the source states it (a document marked
   confidential, an export only admins can pull). Otherwise record the fact
   without one; `/fathom:render` judges it and asks the user when unsure.
+- **Relate facts only when it changes what a reader should believe.** A row may
+  carry `relates`, written on the newer fact: `supersedes` (a decision or
+  design that replaces an older one), `contradicts` (evidence the record can't
+  yet settle), `corroborates` (an independent source agreeing). Each names
+  current keys. `show` prints both directions; the lede goes stale when a fact
+  it rests on is superseded or contradicted; `/fathom:compact` offers
+  superseded facts as one theme. Don't link facts that are merely about the
+  same thing.
 - **Retract rather than delete.** A fact found false gets a row with
   `retracted: true` and a basis saying why. Views as of later versions drop it;
   views as of earlier ones still render it, stamped with their version.

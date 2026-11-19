@@ -4,6 +4,7 @@
   - [1. fathom:record](/skills/record)
   - [2. fathom:render](/skills/render)
   - [3. fathom:pdf](/skills/pdf)
+  - [4. fathom:compact](/skills/compact)
 - Utilities
   - [fathom:proof](/skills/proof)
   - [fathom:wtf](/skills/wtf)

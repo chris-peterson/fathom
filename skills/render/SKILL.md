@@ -54,6 +54,12 @@ stop**: name the missing fact and record it first (`/fathom:record`), then
 render from the new version. A number typed into a view is a fact the record is
 missing.
 
+A fact marked `superseded by` is history: state it only where the brief asks
+for how the work changed, and say what replaced it. A fact marked
+`contradicted by` is unsettled: a view that states it states the
+contradiction too, or leaves both out. `fathom check` names any cited fact in
+either state.
+
 The output leads with the `lede`: the record's own bottom line, the facts it
 rests on, and whether it is `stale`. **Start from the lede, not from the
 facts.** Working the bottom line out again from every row lets whatever was

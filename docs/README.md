@@ -52,14 +52,27 @@ sourcing, is in [Principles](/principles).
    that the facts it cites don't hold.
 5. **Share.** `/fathom:pdf` prints a view for readers outside Claude, on one page
    by default.
+6. **Compact.** `/fathom:compact` finds what a record no longer needs (wrong,
+   duplicated, or superseded facts), asks you theme by theme, and retracts only
+   what you confirm. It runs on its own after Claude Code compacts the
+   conversation.
 
 ## Kinds of work
 
 A **kind** says what facts a record can hold and who reads about it. fathom
 ships `base`, which fits any work, `incident`, which adds causes, impact, and a
-blameless postmortem, and `release`, for announcing what a release shipped. A
-team adds its own kind for its own tools and templates; see
-[Extending](/extending).
+blameless postmortem, `release`, for announcing what a release shipped, and
+`session`, for a unit of AI-assisted work. A team adds its own kind for its own
+tools and templates; see [Extending](/extending).
+
+### With tack
+
+When [tack](https://github.com/chris-peterson/tack) binds a session to a tack,
+fathom starts a `session` record named for it (`auth-rewrite/t3`) and keeps
+only where the work stands: the goal, what landed, what was decided, what is
+left. Never the path; the transcript has that. `/goal` updates the record's
+goal, and `/tack:end` renders a one-screen recap before the retrospective, so
+the retro can link it. tack needs no change; fathom watches for it.
 
 ## The CLI
 
@@ -75,6 +88,8 @@ scripts/fathom brief --record <name> status
 scripts/fathom check <view.html> --record <name>
 scripts/fathom save <view.html> --record <name>
 scripts/fathom views <name>             # each view, and what has moved since it was rendered
+scripts/fathom compact <name>           # what a compaction pass can find mechanically
+scripts/fathom metrics --transcript <session.jsonl>   # what fathom cost a session
 ```
 
 A bare name like `checkout-outage` is a record in `.fathom/checkout-outage/` at

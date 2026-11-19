@@ -1,0 +1,25 @@
+# A unit of AI-assisted work, often one tack of a tack route: what it set out to
+# do, what it produced and decided, and what is left. It records outcomes, not
+# the path to them: the transcript already holds every turn, so a fact that only
+# narrates how the work got somewhere belongs nowhere here.
+kind: session
+extends: base
+facts:
+  goal:
+    about: >-
+      What the work is for, as the user, the issue, or `/goal` states it. One
+      key, revised as a new row when the goal moves, so `fathom history <record>
+      goal` shows how it changed.
+    fields:
+      statement: {type: text, required: true}
+      set-by: {type: text}
+      done-when: {type: text}
+  outcome:
+    about: >-
+      A result that now holds because of the work: something landed, shipped,
+      fixed, learned, or ruled out, stated as the result and not the steps. One
+      row per result a reader would repeat.
+    fields:
+      what: {type: text, required: true}
+      why: {type: text}
+      link: {type: url}

@@ -8,6 +8,14 @@
 
 ### Added
 
+- **A `session` kind keeps a record per tack.** When tack binds a session to a tack, fathom starts `<route>/<tack>` and asks Claude to record only where the work stands (the goal, outcomes, decisions, open actions), never the path. `/goal` updates the record's goal. On `/tack:end`, before the retrospective, it revises the lede and renders the `recap` brief as a polished page, published as an artifact, with a PDF and a link from the retro on offer. tack needs no change: fathom watches for it.
+- **`fathom metrics` says what fathom costs**: CLI time from a log every run writes, and, from a session's transcript, the output spent writing fathom calls, the context their results added and how often it was re-read, and each hook's runs and duration.
+- **`/fathom:compact` prunes a record, with your say-so.** It finds facts that are wrong, duplicated, or no longer relevant, groups them by theme, and asks about each theme with what it would cost: the saved views that cite those facts, the briefs that need them, and whether the lede rests on them. Only what you confirm is retracted, and only by appending rows, so every earlier version and every view stamped with one is unchanged. When Claude Code compacts the conversation, fathom asks the summary to carry the reasoning behind each record this session wrote, then starts the pass on exactly those records.
+- **Facts can say how they bear on each other.** A fact names what it `supersedes`, `contradicts`, or `corroborates`. `show` prints both directions, a lede resting on a superseded or contradicted fact goes stale, `fathom check` names any cited fact in either state, and `fathom compact` offers each superseded group as one theme. An open contradiction now stays in the record instead of living only in the conversation.
+- **A retraction says why**: `reason: wrong | duplicate | irrelevant`, so superseded history isn't later read as a fact found false.
+- **`fathom show --cited`** lists the saved views citing each fact: what retracting it would make stale.
+- **A record can be named `<route>/<tack>`**, as tack names a unit of work, and lives at `.fathom/<route>/<tack>/`.
+- **`fathom touched`** lists the records a Claude session wrote, from a ledger fathom keeps outside the records.
 - **A record keeps its own bottom line, the lede.** One `lede` fact states where the work stands, resting on named facts, and `/fathom:record` revises it out loud whenever new facts move it ("lede: X → Y, because Z"). `fathom show` leads with it and marks it stale when a fact it rests on changes; `fathom add` refuses a lede that isn't inferred, rests on a fact the record doesn't hold, or states a number those facts don't. Every view opens with the lede reframed for its reader, so a one-page status and a long analysis start from the same conclusion.
 - **A `code` field type holds verbatim source**: a diff, a config file, a command's output. Unlike `text`, it may contain `<`, so an XML or HTML diff can be recorded exactly; views escape it.
 - **Views are kept apart from the facts, with the inputs they came from.** `fathom save` checks a view and keeps it in the record's `views/<name>/v<N>.html`, logging the record version, the brief and style it was rendered with, and the visibility. A re-render at the same version sits beside the earlier one instead of replacing it. `/fathom:render` saves every view it writes.
@@ -21,6 +29,8 @@
 
 ### Fixed
 
+- **Concurrent writes to one record no longer share a version.** `add`, `classify`, and `retitle` hold a lock on the record while they read its version and append, so two sessions, a hook, and a background agent can write to one record at once.
+- **`fathom save` no longer loses a render.** A brief with invalid front matter made `save` copy the view and then stop with a traceback before logging it, and every later save reported the copy as "already saved", so `views` and `publish` never saw the render. `save` now settles everything it logs before writing anything, and logs a render an earlier save left unlogged. An invalid brief is reported in one line with its file, line, and column, and `fathom kind` lists every broken brief.
 - **`/fathom:pdf` prints the view `fathom save` just wrote.** A re-save at the same record version lands beside the original as `v<N>-2.html`, and printing `v<N>.html` printed the earlier layout.
 
 ## 0.2.0

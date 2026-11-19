@@ -127,7 +127,9 @@ them.
 #### `RECORD-12`
 Where a record is named by a bare name rather than a path, the system shall keep
 it in `.fathom/<name>/` at the root of the git repository holding the working
-directory, or in `./.fathom/<name>/` outside a repository.
+directory, or in `./.fathom/<name>/` outside a repository. A bare name is one
+kebab-case name, or two qualified as `<route>/<tack>`, so each unit of work a
+tracker names can keep its own record.
 
 #### `RECORD-13`
 When the system creates the `.fathom/` directory, it shall make git ignore what
@@ -140,6 +142,21 @@ line, whose first row, version 0, holds the record's kind and title.
 #### `RECORD-15`
 When a record is retitled, the system shall add a row holding the new title, so
 a read as of an earlier version keeps the earlier title.
+
+#### `RECORD-16`
+When a fact is retracted, the system shall let the retraction say why: the fact
+was wrong, duplicated another, or is no longer relevant, so a fact retired as
+superseded history is not read later as one found false.
+
+#### `RECORD-17`
+When a Claude session writes to a record, the system shall note the session and
+the record in a ledger outside the record, so a later step can find exactly the
+records that session wrote.
+
+#### `RECORD-18`
+While one process writes to a record, the system shall make every other writer
+wait, and number each writer's rows from the record as it stands once the wait
+ends, so concurrent writers never share a version.
 
 ### `LEDE`
 The record's bottom line
@@ -176,6 +193,114 @@ the fact nor the lede.
 #### `LEDE-07`
 When asked for a record's views, the system shall report a view that opens with
 a stale lede as stale.
+
+### `RELATE`
+How facts bear on each other
+
+#### `RELATE-01`
+The system shall let a fact name the current facts it supersedes, contradicts,
+or corroborates, recorded on the newer fact, and refuse a relation naming a key
+that is not a current fact.
+
+#### `RELATE-02`
+When a fact is corrected without restating its relations, the system shall keep
+the relations of its previous row.
+
+#### `RELATE-03`
+When the record is shown, the system shall show each relation in both
+directions: what a fact supersedes, and what it is superseded by.
+
+#### `RELATE-04`
+If a fact the lede rests on is superseded or contradicted by a current fact,
+then the system shall mark the lede stale.
+
+#### `RELATE-05`
+When a view is checked, the system shall name each cited fact that a current
+fact supersedes or contradicts, without failing the check, since a view may
+state history or a contradiction on purpose.
+
+### `COMPACT`
+Compacting a record
+
+#### `COMPACT-01`
+The system shall compact a record only by appending rows (retractions, and
+consolidated rows for duplicates), so a read as of an earlier version, and every
+view stamped with one, is unchanged by it.
+
+#### `COMPACT-02`
+The system shall retract a fact in a compaction only when the user confirms it.
+It shall group candidates by theme and, for each theme, state the facts in
+plain words, why they are candidates, the saved views that cite them, the
+briefs that need them, and whether the lede rests on them.
+
+#### `COMPACT-03`
+The system shall find mechanical candidates itself: facts with identical fields
+under different keys, facts a current fact supersedes, open contradictions, and
+a stale or missing lede.
+
+#### `COMPACT-04`
+If a contradiction can't be settled from evidence, then the system shall report
+it with both values and both bases and leave both facts in the record.
+
+#### `COMPACT-05`
+Before a session's conversation is compacted, the system shall ask the summary
+to carry, for each record that session wrote, the reasoning the record can't
+hold: facts found wrong, keys that describe the same thing, open
+contradictions, and why the lede says what it says.
+
+#### `COMPACT-06`
+After a session's conversation is compacted, the system shall start a
+compaction pass on each record that session wrote, and on no other.
+
+#### `COMPACT-07`
+If a candidate carries a live condition (a trigger to revisit, a date it holds
+until), then the system shall not offer it as no longer relevant.
+
+### `SESSION`
+A record per unit of AI-assisted work, kept alongside tack
+
+#### `SESSION-01`
+When a tack route binds a Claude session to a tack, the system shall start a
+record named `<route>/<tack>` of kind `session`, unless one exists, and give the
+session the rule for keeping it.
+
+#### `SESSION-02`
+The system shall keep in a session record only where the work stands: its
+goal, its outcomes, its decisions with their reasons, and the actions left
+open, and never the path to them (attempts, edits, retries), which the
+transcript already holds.
+
+#### `SESSION-03`
+When the user sets a goal with `/goal`, the system shall record it as a new row
+of the record's `goal` key and revise the lede if the goal changes where the
+work stands.
+
+#### `SESSION-04`
+When `/tack:end` runs, before the retrospective is handed off, the system shall
+revise the lede, render the `recap` brief as a polished page, publish it as an
+artifact, and offer a PDF and a link to it from the retrospective.
+
+#### `SESSION-05`
+The system shall react to tack without tack knowing fathom exists, matching a
+skill whether the user typed it or the agent invoked it, and shall do nothing
+on every other prompt or command.
+
+#### `SESSION-06`
+After a conversation compaction, the system shall restate the rule for keeping
+each session record the session wrote.
+
+### `METRIC`
+What fathom costs
+
+#### `METRIC-01`
+The system shall log each CLI run's duration, command, and session outside the
+record.
+
+#### `METRIC-02`
+When given a session's transcript, the system shall report the share of the
+session's output tokens spent writing fathom calls, the context their results
+added and how much later requests re-read it, and each fathom hook's runs,
+duration, and the context it added.
 
 ### `KIND`
 Kinds of work
@@ -267,6 +392,19 @@ saved render it was, so the published text is what drift is measured against
 When asked for a record's views, the system shall report each view's latest
 render and why it is stale: each cited fact that has changed since its version,
 and whether its brief or style has changed since it was saved.
+
+#### `VIEW-15`
+The system shall save a view all or nothing: it shall settle every input the
+render log records before writing the view's file, and never leave a saved view
+without its log entry. When a view's file is already saved but has no log
+entry, saving it again shall log the entry rather than report it as already
+saved.
+
+#### `VIEW-16`
+If a brief's front matter is not valid YAML, then the system shall refuse
+whatever needed the brief and name the brief's file and the line and column of
+the error, rather than stop with a traceback. When asked for a kind, the system
+shall name every brief whose front matter is invalid.
 
 ### `COMM`
 Communication style: how a view reads
