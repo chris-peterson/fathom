@@ -94,6 +94,8 @@ record it and report why.
 #### `RECORD-05`
 If a text field holds markup outside the allowed set, then the system shall
 refuse the row, so presentation can't be stored as data.
+A `code` field holds verbatim source (a diff, a config file, captured output)
+and is exempt: its `<` is data, which a view escapes.
 
 #### `RECORD-06`
 The system shall read the record as of any version it holds.

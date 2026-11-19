@@ -8,6 +8,7 @@
 
 ### Added
 
+- **A `code` field type holds verbatim source**: a diff, a config file, a command's output. Unlike `text`, it may contain `<`, so an XML or HTML diff can be recorded exactly; views escape it.
 - **Views are kept apart from the facts, with the inputs they came from.** `fathom save` checks a view and keeps it in the record's `views/<name>/v<N>.html`, logging the record version, the brief and style it was rendered with, and the visibility. A re-render at the same version sits beside the earlier one instead of replacing it. `/fathom:render` saves every view it writes.
 - **`fathom views` says which documents are stale and why**: the cited facts that changed since each view's version, and whether its brief or style changed since.
 - **`fathom publish` logs where a view went**, so a hand-edited copy can later be compared with what readers got.

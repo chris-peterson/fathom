@@ -61,7 +61,7 @@ KEY = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 MARKUP = re.compile(r"<[a-zA-Z/!?]")
 DIGITS = re.compile(r"\d+")
 THOUSANDS = re.compile(r"(?<=\d),(?=\d{3}\b)")
-FIELD_TYPES = ("text", "number", "datetime", "date", "url", "enum", "list", "map")
+FIELD_TYPES = ("text", "code", "number", "datetime", "date", "url", "enum", "list", "map")
 
 
 def fail(message):
@@ -323,6 +323,11 @@ def type_error(value, kind, spec):
             return "must be text"
         if MARKUP.search(value):
             return "holds markup; store text (Markdown inline code, bold, and links are allowed)"
+    elif kind == "code":
+        # Verbatim source (a diff, a config file, a command's output): stored as written, so `<` is data, not
+        # markup. Views escape it and show it as a block.
+        if not isinstance(value, str):
+            return "must be text"
     elif kind == "number":
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             return "must be a number"
